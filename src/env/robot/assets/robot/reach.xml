@@ -37,7 +37,7 @@
 		<light directional="true" ambient="0 0 0" diffuse="0 0 0" specular="0.01 0.01 0.01" castshadow="false" pos="40 4 4" name="light2"></light>
 		<light pos="1.3 0 2" castshadow="false" name="light3"></light>
 		
-		<camera fovy="70" name="third_person" pos="2.10 0.3 1.5" euler="0 0.95 1.57"/> <!-- could be 1.5 height -->
+		<camera fovy="70" name="camera_third_person" pos="2.10 0.3 1.5" euler="0 0.95 1.57"/> <!-- could be 1.5 height -->
 		<!-- <camera fovy="60" name="camera0" pos="2.25 0.25 1.5" euler="0 0.95 1.57"/> -->
 		<!-- <camera fovy="45" name="camera1" pos="0.7 0.7 1.6" mode="targetbodycom" target="table0"/> -->
 

@@ -247,7 +247,7 @@ class BaseEnv(robot_env.RobotEnv):
     def render_obs(self, mode=None, width=448, height=448, camera_id=None):
         self._render_callback()
 
-        cameras = ["front_2", self.cameras]
+        cameras = ["third_person", self.cameras]
         data = list()
         for cam_name in cameras:
             data.append(self.sim.render(
