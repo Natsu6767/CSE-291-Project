@@ -27,7 +27,7 @@ def evaluate(env, agent, video, num_episodes, L, step, test_env=False):
 			with torch.no_grad(), utils.eval_mode(agent):
 				action = agent.select_action(obs)
 			obs, reward, done, info = env.step(action)
-			video.record(env)
+			#video.record(env)
 			episode_reward += reward
 		if 'is_success' in info:
 			success = float(info['is_success'])
@@ -35,7 +35,7 @@ def evaluate(env, agent, video, num_episodes, L, step, test_env=False):
 
 		if L is not None:
 			_test_env = '_test_env' if test_env else ''
-			video.save(f'{step}{_test_env}.mp4')
+			#video.save(f'{step}{_test_env}.mp4')
 			L.log(f'eval/episode_reward{_test_env}', episode_reward, step)
 			if 'is_success' in info:
 				L.log(f'eval/sucess_rate', success, step)
@@ -57,7 +57,12 @@ def visualize_configurations(env, args):
 def main(args):
 	# Set seed
 	utils.set_seed_everywhere(args.seed)
-	cameras="dynamic"
+	if args.cameras == 0:
+		cameras="dynamic"
+	elif args.cameras == 1:
+		cameras="dynamic_2"
+	else:
+		cameras="ERROR"
 
 	# Initialize environments
 	gym.logger.set_level(40)
@@ -110,7 +115,7 @@ def main(args):
 
 	# Prepare agent
 	assert torch.cuda.is_available(), 'must have cuda enabled'
-	"""replay_buffer = utils.ReplayBuffer(
+	replay_buffer = utils.ReplayBuffer(
 		obs_shape=env.observation_space.shape,
 		action_shape=env.action_space.shape,
 		capacity=args.train_steps,
@@ -118,19 +123,28 @@ def main(args):
 		n_step=args.n_step,
 		episode_length=args.episode_length,
 		discount=args.discount
-	)"""
+	)
 
-	replay_buffer = utils.ReplayBuffer2(
+	"""replay_buffer = utils.ReplayBuffer2(
 		obs_shape=env.observation_space.shape,
 		action_shape=env.action_space.shape,
 		capacity=args.buffer_capacity,
 		batch_size=args.batch_size,
-	)
+	)"""
 
 	print('Observations:', env.observation_space.shape)
 	print('Action space:', f'{args.action_space} ({env.action_space.shape[0]})')
+	if args.rl_enc == "small":
+		a_obs_shape = (32, 26, 26)
+	elif args.rl_enc == "large":
+		a_obs_shape = (32, 16, 16)
+	elif args.rl_enc == "latent":
+		a_obs_shape = (args.bottleneck*16, 16, 16)
+	else:
+		a_obs_shape = "ERROR"
+
 	agent = make_agent(
-		obs_shape=(args.bottleneck*16, 16, 16), #env.observation_space.shape,
+		obs_shape=a_obs_shape,#(args.bottleneck*16, 16, 16), #env.observation_space.shape,
 		action_shape=env.action_space.shape,
 		args=args
 	)
@@ -168,11 +182,12 @@ def main(args):
 					a_eval = env.action_space.sample()
 					obs, _, _, _ = env.step(a_eval)
 					# Select the camera views
-					o1, o2 = obs
+					o1 = obs[:3]
+					o2 = obs[3:]
 					# Concatenate and convert to torch tensor and add unit batch dimensions
 					images_rgb = np.concatenate([np.expand_dims(o1, axis=0),
 												 np.expand_dims(o2, axis=0)], axis=0)
-					images_rgb = torch.from_numpy(images_rgb).float().div(255).cuda().unsqueeze(0)
+					images_rgb = torch.from_numpy(images_rgb).float().cuda().unsqueeze(0)#.div(255)
 					agent.gen_interpolate(images_rgb, writer, step)
 
 			# Save agent periodically
@@ -188,7 +203,7 @@ def main(args):
 			obs = env.reset()
 
 			video_tensor = list()
-			video_tensor.append(obs[0])
+			video_tensor.append(obs[:3])
 			done = False
 			episode_reward = 0
 			episode_step = 0
@@ -216,7 +231,7 @@ def main(args):
 		replay_buffer.add(obs, action, reward, next_obs, episode)
 		episode_reward += reward
 		obs = next_obs
-		video_tensor.append(obs[0])
+		video_tensor.append(obs[:3])
 		episode_success+=float(info['is_success'])
 		episode_step += 1
 

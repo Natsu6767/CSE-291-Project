@@ -327,24 +327,27 @@ class VisionTransformer(nn.Module):
 
 
 class SharedCNN(nn.Module):
-    def __init__(self, obs_shape, num_layers=11, num_filters=32):
+    def __init__(self, obs_shape, num_layers=11, num_filters=32, project=False, mean_zero=False):
         super().__init__()
         #assert len(obs_shape) == 3
         self.num_layers = num_layers
         self.num_filters = num_filters
+        self.project = project
 
-        # self.layers = [nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)]
-        self.layers = [nn.Conv2d(obs_shape[0], 64, kernel_size=1, stride=1, padding=0)]
+        #self.layers = [nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)]
+        #self.layers = [NormalizeImg(mean_zero), nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)]
+        #self.layers = [nn.Conv2d(obs_shape[0], 32, kernel_size=1, stride=1, padding=0)]
         """for _ in range(1, num_layers):
             self.layers.append(nn.ReLU())
             self.layers.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))"""
-        self.layers = nn.Sequential(*self.layers)
-        self.out_shape = _get_out_shape(obs_shape, self.layers)
-        self.apply(orthogonal_init)
+        #self.layers = nn.Sequential(*self.layers)
+        self.out_shape = obs_shape# _get_out_shape(obs_shape, self.layers)
+        #self.apply(orthogonal_init)
 
     def forward(self, x):
-        x = x.view(-1, x.size(1) * x.size(2), x.size(3), x.size(4))
-        return self.layers(x)
+        if self.project:
+            x = x.view(-1, x.size(1) * x.size(2), x.size(3), x.size(4))
+        return x#self.layers(x)
 
 
 class HeadCNN(nn.Module):

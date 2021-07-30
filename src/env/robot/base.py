@@ -248,6 +248,8 @@ class BaseEnv(robot_env.RobotEnv):
         self._render_callback()
 
         cameras = ["third_person", self.cameras]
+        cam1 = "front" if self.cameras == "dynamic" else "front_2"
+        cameras = [cam1, self.cameras]
         data = list()
         for cam_name in cameras:
             data.append(self.sim.render(

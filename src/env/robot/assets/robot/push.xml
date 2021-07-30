@@ -45,7 +45,7 @@
 		
 		<!--<camera fovy="65" name="camera0" pos="2.05 0.30 1.4" euler="0 0.85 1.57"/>-->
 		<!--<camera fovy="75" name="camera0" pos="1.65 0.21 1.30" euler="0 0.70 1.57"/>-->
-		<camera fovy="70" name="third_person" pos="2.10 0.3 1.5" euler="0 0.95 1.57"/> <!-- could be 1.5 height -->
+		<camera fovy="70" name="camera_third_person" pos="2.10 0.3 1.5" euler="0 0.95 1.57"/> <!-- could be 1.5 height -->
 		<!-- <camera fovy="45" name="camera1" pos="0.7 0.7 1.6" mode="targetbodycom" target="table0"/> -->
 
 		<camera fovy="45" name="camera_front" pos="2.10 0.3 1.5" mode="targetbody" target="camera_target"/>

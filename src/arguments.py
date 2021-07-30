@@ -15,7 +15,7 @@ def parse_args():
 	parser.add_argument('--eval_mode', default='none', type=str)
 	parser.add_argument('--from_state', default=False, action='store_true')
 	parser.add_argument('--action_space', default='xy', type=str)
-	parser.add_argument('--cameras', default= 2, type=int) # 0: 3rd person, 1: 1st person, 2: both
+	parser.add_argument('--cameras', default=0, type=int) # 0: 3rd person, 1: 1st person, 2: both
 	parser.add_argument('--render', default=False, type=bool)
 	parser.add_argument('--camera_dropout', default=0, type=int) # [0,1,2,3] 0: None, 1: TP, 2: FP, 3: Random
 	
@@ -101,6 +101,9 @@ def parse_args():
 	parser.add_argument('--lr_3dp', default=1e-3, type=float)
 	parser.add_argument('--buffer_capacity', default="-1", type=str)
 	parser.add_argument('--log_3d_imgs', default="2k", type=str)
+	parser.add_argument('--huber', default=0, type=int)
+	parser.add_argument('--rl_enc', default="small", type=str)
+	parser.add_argument('--bsize_3d', default=8, type=int)
 
 	args = parser.parse_args()
 

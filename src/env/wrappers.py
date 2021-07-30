@@ -47,7 +47,7 @@ def make_env(
 	env = ObservationSpaceWrapper(env, observation_type=observation_type, image_size=image_size, cameras=cameras, camera_dropout=camera_dropout)
 	env = ActionSpaceWrapper(env, action_space=action_space)
 	env = FrameStack(env, frame_stack)
-	env = DomainRandomizationWrapper(env, domain_name=domain_name, randomizations=randomizations, seed=seed)
+	env = DomainRandomizationWrapper(env, domain_name=domain_name, randomizations=randomizations, seed=seed, camera_name=cameras)
 
 	return env
 
@@ -124,7 +124,7 @@ class ObservationSpaceWrapper(gym.Wrapper):
 		self.camera_dropout = camera_dropout # [0,1,2,3] 0: None, 1: TP, 2: FP, 3:Random
 
 		if self.observation_type == 'image':
-			self.observation_space = gym.spaces.Box(low=0, high=255, shape=(3, image_size, image_size), dtype=np.uint8)
+			self.observation_space = gym.spaces.Box(low=0, high=255, shape=(3*2, image_size, image_size), dtype=np.uint8)
 
 		elif self.observation_type == 'state':
 			self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=env.unwrapped.state_dim, dtype=np.float32)
@@ -138,10 +138,11 @@ class ObservationSpaceWrapper(gym.Wrapper):
 
 	def _get_obs(self, obs_dict):
 		obs = obs_dict['observation']
-		output = []
+
 		if self.observation_type == 'image':
+			output = np.empty((3 * obs.shape[0], self.image_size, self.image_size), dtype=obs.dtype)
 			for i in range(obs.shape[0]):
-				output.append(obs[i].transpose(2, 0, 1))
+				output[3*i : 3 * (i+1)] = obs[i].transpose(2, 0, 1)
 		elif self.observation_type == 'state':
 			output = obs_dict['observation']
 		return output
@@ -183,7 +184,7 @@ class ActionSpaceWrapper(gym.Wrapper):
 
 
 class DomainRandomizationWrapper(gym.Wrapper):
-	def __init__(self, env, domain_name, randomizations=None, seed=None):
+	def __init__(self, env, domain_name, camera_name, randomizations=None, seed=None):
 		# assert domain_name in {'reach', 'push', 'cloth'}, \
 		#	'domain randomization only implemented for reach, push, cloth domains'
 		gym.Wrapper.__init__(self, env)
@@ -200,7 +201,7 @@ class DomainRandomizationWrapper(gym.Wrapper):
 		self.randomizations = randomizations
 		self.sim = self.env.unwrapped.sim
 		self.random_state = np.random.RandomState(seed)
-		self.camera_name = 'camera_dynamic'
+		self.camera_name = "camera_" + camera_name
 		self.cam_modder = modder.CameraModder(self.sim, random_state=self.random_state)
 		self.light_name = 'light0'
 		self.light_modder = modder.LightModder(self.sim, random_state=self.random_state)

@@ -22,10 +22,13 @@ class SACv2_3D(object):
         self.train_3d = args.train_3d
         self.prop_to_3d = args.prop_to_3d
         self.log_3d_imgs = args.log_3d_imgs
+        self.huber = args.huber
+        self.bsize_3d = args.bsize_3d
 
         assert not args.from_state and not args.use_vit, 'not supported yet'
 
-        shared = m.SharedCNN(obs_shape, args.num_shared_layers, args.num_filters)
+        project = True if args.rl_enc == "latent" else False
+        shared = m.SharedCNN(obs_shape, args.num_shared_layers, args.num_filters, project=project)
         head = m.HeadCNN(shared.out_shape, args.num_head_layers, args.num_filters)
         self.encoder_rl = m.Encoder(
             shared,
@@ -61,7 +64,7 @@ class SACv2_3D(object):
         """
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=args.lr)
         self.critic_optimizer = torch.optim.Adam(
-            itertools.chain(self.encoder_3d.parameters(), self.critic.parameters()),
+            itertools.chain(self.encoder_3d.parameters(), self.encoder_rl.parameters(), self.critic.parameters()),
             lr=args.lr)
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=args.alpha_lr, betas=(args.alpha_beta, 0.999))
 
@@ -80,10 +83,13 @@ class SACv2_3D(object):
 
         self.aug = m.RandomShiftsAug(pad=4)
         self.train()
-        print("3D Encoder:", utils.count_parameters(self.encoder_3d))
-        print('Encoder:', utils.count_parameters(self.encoder_rl))
-        print('Actor:', utils.count_parameters(self.actor))
+        print("\n3D Encoder:", utils.count_parameters(self.encoder_3d))
+        print('RL Encoder:', utils.count_parameters(self.encoder_rl))
+        print('\nActor:', utils.count_parameters(self.actor))
         print('Critic:', utils.count_parameters(self.critic))
+        print("\n3D Decoder: ", utils.count_parameters(self.decoder_3d))
+        print("3D RotNet: ", utils.count_parameters(self.rotate_3d))
+        print("3D PoseNet: ", utils.count_parameters(self.pose_3d))
 
     def train(self, training=True):
         self.training = training
@@ -109,18 +115,18 @@ class SACv2_3D(object):
         return _obs
 
     def select_action(self, obs):
-        obs = obs[0] # Take first view
+        obs = obs[:3] # Take first view
         _obs = self._obs_to_input(obs)
         with torch.no_grad():
-            _obs = self.encoder_3d(_obs)
+            _obs, _ = self.encoder_3d(_obs)
             mu, _, _, _ = self.actor(self.encoder_rl(_obs), compute_pi=False, compute_log_pi=False)
         return mu.cpu().data.numpy().flatten()
 
     def sample_action(self, obs):
-        obs = obs[0] # Take first view
+        obs = obs[:3] # Take first view
         _obs = self._obs_to_input(obs)
         with torch.no_grad():
-            _obs = self.encoder_3d(_obs)
+            _obs, _ = self.encoder_3d(_obs)
             mu, pi, _, _ = self.actor(self.encoder_rl(_obs), compute_log_pi=False)
         return pi.cpu().data.numpy().flatten()
 
@@ -143,11 +149,9 @@ class SACv2_3D(object):
         self.critic_optimizer.zero_grad(set_to_none=True)
 
         if self.prop_to_3d:
-            self.enc3d_optimizer.zero_grad(set_to_none=True)
-            critic_loss.backward(retain_graph=True)
-            self.enc3d_optimizer.step()
-            # Destroy sub-graphs not required
-            Q1=None; Q2=None; target_Q=None; target_Q1=None; target_Q2=None;
+            #self.enc3d_optimizer.zero_grad(set_to_none=True)
+            critic_loss.backward()
+            #self.enc3d_optimizer.step()
         else:
             print("ERROR")
             critic_loss.backward()
@@ -179,9 +183,21 @@ class SACv2_3D(object):
             alpha_loss.backward()
             self.log_alpha_optimizer.step()
 
-    def update_3d_recon(self, imgs, latent_3d, L=None, writer=None, step=None):
+    def fwd_3d(self, imgs, writer, step, log=False):
+        """
+
+        :param imgs:
+        :param writer: Tensorboard
+        :param step:
+        :param log: Train pose or encoder(also log in this case)
+        :return:
+        """
         b, t, c, h, w = imgs.size()
-        latent_3d = self.encoder_3d(imgs[:, 0])
+        #if log:
+        _, latent_3d = self.encoder_3d(imgs[:, 0])
+        #else:
+        #    with torch.no_grad():
+        #       _, latent_3d = self.encoder_3d(imgs[:, 0])
         _, C, H, W, D = latent_3d.size()
 
         # Duplicate the representation for each view
@@ -191,23 +207,38 @@ class SACv2_3D(object):
         imgs_ref = imgs[:, 0:1].repeat(1, t - 1, 1, 1, 1)
         imgs_pair = torch.cat([imgs_ref, imgs[:, 1:]], dim=2)  # b x t-1 x 6 x h x w
         pair_tensor = imgs_pair.view(b * (t - 1), c * 2, h, w)
-        traj = self.pose_3d(pair_tensor)  # b*t-1 x 6
+
+        #if log:
+        #   with torch.no_grad():
+        #        traj = self.pose_3d(pair_tensor)  # b*t-1 x 6
+        #else:
+        traj = self.pose_3d(pair_tensor)
         poses = torch.cat([torch.zeros(b, 1, 6).cuda(), traj.view(b, t - 1, 6)], dim=1).view(b * t, 6)
 
         theta = euler2mat(poses, scaling=False, translation=True)
+
+        #if log:
         rot_codes = self.rotate_3d(object_code_t, theta)
+        #else:
+        #    with torch.no_grad():
+        #        rot_codes = self.rotate_3d(object_code_t, theta)
 
         # Decode the representation to get back image.
+        #if log:
         output = self.decoder_3d(rot_codes)
+        #else:
+        #    with torch.no_grad():
+        #        output = self.decoder_3d(rot_codes)
         output = F.interpolate(output, (h, w), mode='bilinear')  # T*B x 3 x H x W
         img_tensor = imgs.view(b * t, c, h, w)
 
         # L2 Loss
-        loss_3d = F.mse_loss(output, img_tensor)
+        if not self.huber:
+            loss_3d = F.mse_loss(output, img_tensor)
+        else:
+            loss_3d = F.huber_loss(output, img_tensor)
 
-        if L is not None:
-            L.log("train_3d/loss", loss_3d, step)
-        if writer is not None:
+        if log and writer is not None:
             writer.add_scalar("Loss 3D Recon", loss_3d, step)
 
             if step % self.log_3d_imgs == 0:
@@ -218,23 +249,43 @@ class SACv2_3D(object):
 
                 writer.add_video(f'input videos (Training)', imgs, step)
                 writer.add_video(f'reconstruction videos (Training)',
-                                 torch.clamp(output, 0, 1).view(b, t, c, h, w),step)
+                                 torch.clamp(output, 0, 1).view(b, t, c, h, w), step)
+        return loss_3d
 
+    def update_3d_recon(self, imgs, L=None, writer=None, step=None):
+        """
+        Uppdate 3D Networks
+        1
+        :param imgs: b x t x c x h x w
+        :param L: Logger
+        :param writer: Tensorboard SummaryWriter
+        :param step: Train Step
+        :return:
+        """
+        #imgs = imgs.div(255)
         self.enc3d_optimizer.zero_grad(set_to_none=True)
         self.recon3d_optimizer.zero_grad(set_to_none=True)
-        self.pose3d_optimizer.zero_grad(set_to_none=True)
 
-        loss_3d.backward()
+        loss = self.fwd_3d(imgs, writer, step, log=True)
+        if L is not None:
+            L.log("train_3d/loss", loss, step)
+        loss.backward()
 
         self.enc3d_optimizer.step()
         self.recon3d_optimizer.step()
+
+        self.pose3d_optimizer.zero_grad(set_to_none=True)
+
+        loss = self.fwd_3d(imgs, writer, step, log=False)
+        loss.backward()
+
         self.pose3d_optimizer.step()
 
     def gen_interpolate(self, imgs, writer=None, step=None):
         with torch.no_grad():
+            imgs = imgs.div(255)
             b, t, c, h, w = imgs.size()
-
-            latent_3d = self.encoder_3d(imgs[:, 0])
+            _, latent_3d = self.encoder_3d(imgs[:, 0])
             _, C, H, W, D = latent_3d.size()
 
             a = torch.tensor(np.arange(0., 1.1, 0.1)).to(latent_3d.device).unsqueeze(0).repeat(b, 1).view(b, -1)
@@ -270,27 +321,26 @@ class SACv2_3D(object):
         if step % self.update_freq != 0:
             return
 
-        obs, action, reward, next_obs, done = replay_buffer.sample()
+        obs, action, reward, next_obs = replay_buffer.sample()
 
         # Augment
-        b, v, c, h, w = obs.shape
-        obs = self.aug(obs.view(-1, c, h, w))
-        n, c, h, w = obs.shape
-        obs = obs.view(b, v, c, h, w)
+        obs = self.aug(obs)
+        obs = obs.div(255)
 
         imgs = copy.deepcopy(obs)
 
         if not self.prop_to_3d:
             print("ERROR")
             with torch.no_grad():
-                obs_3d = self.encoder_3d(obs[:, 0])
+                obs_3d, _ = self.encoder_3d(obs[:, :3])
         else:
-            obs_3d = self.encoder_3d(obs[:, 0])
+            obs_3d, _ = self.encoder_3d(obs[:, :3])
         obs = self.encoder_rl(obs_3d)
 
         with torch.no_grad():
             next_obs = self.aug(next_obs)
-            next_obs_3d = self.encoder_3d(next_obs)
+            next_obs = next_obs.div(255)
+            next_obs_3d, _ = self.encoder_3d(next_obs[:, :3])
             next_obs = self.encoder_rl(next_obs_3d)
 
         if self.train_rl:
@@ -299,7 +349,9 @@ class SACv2_3D(object):
             utils.soft_update_params(self.critic, self.critic_target, self.tau)
 
         if self.train_3d:
-            self.update_3d_recon(imgs, obs_3d, L, writer, step)
-            #self.update_3d_pose()
+            n, c, h, w = imgs.shape
+            imgs = imgs.view(n, 2, c//2, h, w)
+            imgs = imgs[: self.bsize_3d]
+            self.update_3d_recon(imgs, L, writer, step)
 
 
