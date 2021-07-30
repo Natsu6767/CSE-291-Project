@@ -11,7 +11,7 @@ HDIM=$7
 RLENC=$8
 CAM=$9
 
-python train.py \
+python src/train.py \
     --algorithm $ALGO \
   	--task_name $TASK \
 	--num_shared_layers 4 \
