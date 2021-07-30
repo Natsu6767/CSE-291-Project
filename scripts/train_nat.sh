@@ -19,7 +19,7 @@ python main.py \
 	--frame_stack 1 \
 	--save_video \
 	--exp_suffix $WORK_DIR \
-    --seed $SEED
+    --seed $SEED \
 	--train_steps $TRAIN_STEPS \
 	--log_dir logs \
 	--image_size 64 \
