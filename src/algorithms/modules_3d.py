@@ -32,7 +32,7 @@ def orthogonal_init(m):
         nn.init.orthogonal_(m.weight.data)
         if hasattr(m.bias, 'data'):
             m.bias.data.fill_(0.0)
-    elif isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.ConvTranspose3d):
+    elif isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):# or isinstance(m, nn.ConvTranspose3d):
         gain = nn.init.calculate_gain('relu')
         nn.init.orthogonal_(m.weight.data, gain)
         if hasattr(m.bias, 'data'):
@@ -138,23 +138,22 @@ class Encoder_3d(nn.Module):
         #self.feature_extraction = ImpalaConv(3)  # 64 x 8 x 8
         self.rl_out_type = args.rl_enc
         num_filters = 32
-        self.feature_extraction1 = [nn.Conv2d(3, num_filters, 4, stride=2, padding=1)]
+        self.feature_extraction1 = [nn.Conv2d(3, num_filters, 4, stride=2, padding=1), nn.ReLU()]
         self.feature_extraction2 = []
         for _ in range(1, 4):
-                    self.feature_extraction1.append(nn.ReLU())
                     self.feature_extraction1.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
+                    self.feature_extraction1.append(nn.ReLU())
         for _ in range(4, 9):
-            self.feature_extraction2.append(nn.ReLU())
             self.feature_extraction2.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
+            self.feature_extraction2.append(nn.ReLU())
 
         self.feature_extraction1 = nn.Sequential(*self.feature_extraction1)
         self.feature_extraction2 = nn.Sequential(*self.feature_extraction2)
-
         self.depth_layer = 16
         self.feat_3d_ch = 32 // self.depth_layer
 
-        self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, args.bottleneck, 3, stride=1, padding=1) # 32 x 16 x 16 x 16
-        #self.conv3d_2 = nn.ConvTranspose3d(32, args.bottleneck, 3, stride=1, padding=1)  # 16 x 16 x 16 x 16
+        self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 32, 3, stride=1, padding=1) # 32 x 16 x 16 x 16
+        self.conv3d_2 = nn.ConvTranspose3d(32, args.bottleneck, 3, stride=1, padding=1)  # 16 x 16 x 16 x 16
         self.apply(orthogonal_init)
 
 
@@ -171,9 +170,9 @@ class Encoder_3d(nn.Module):
 
         # 3d convnet
         z_3d = self.conv3d_1(z_3d)  # 64 x 16 x 16 x 16
-        z_3d = F.relu(z_3d)
-        #z_3d = self.conv3d_2(z_3d)  # bottleneck x 16 x 16 x 16
-        #z_3d = F.relu(z_3d)
+        z_3d = F.leaky_relu(z_3d)
+        z_3d = self.conv3d_2(z_3d)  # bottleneck x 16 x 16 x 16
+        z_3d = F.leaky_relu(z_3d)
         if self.rl_out_type == "small":
             rl_out = z_2d_rl
         elif self.rl_out_type == "large":

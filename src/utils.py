@@ -92,7 +92,7 @@ def prefill_memory(capacity, obs_shape):
 	if len(obs_shape) > 1:
 		c,h,w = obs_shape
 		for _ in range(capacity):
-			frame = np.ones((3,h,w), dtype=np.uint8)
+			frame = np.ones((c,h,w), dtype=np.uint8)
 			obses.append(frame)
 	else:
 		for _ in range(capacity):

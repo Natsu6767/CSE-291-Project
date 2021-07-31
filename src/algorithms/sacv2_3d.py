@@ -28,7 +28,8 @@ class SACv2_3D(object):
         assert not args.from_state and not args.use_vit, 'not supported yet'
 
         project = True if args.rl_enc == "latent" else False
-        shared = m.SharedCNN(obs_shape, args.num_shared_layers, args.num_filters, project=project)
+        project_conv = True if args.project_conv==1 else False
+        shared = m.SharedCNN(obs_shape, args.num_shared_layers, args.num_filters, project=project, project_conv=project_conv)
         head = m.HeadCNN(shared.out_shape, args.num_head_layers, args.num_filters)
         self.encoder_rl = m.Encoder(
             shared,
@@ -81,7 +82,7 @@ class SACv2_3D(object):
         self.recon3d_optimizer = torch.optim.Adam(recond3d_params, lr=args.lr_3dc)
         self.pose3d_optimizer = torch.optim.Adam(pose3d_params, lr=args.lr_3dp)
 
-        self.aug = m.RandomShiftsAug(pad=4)
+        self.aug = m.RandomShiftsAug(pad=3)
         self.train()
         print("\n3D Encoder:", utils.count_parameters(self.encoder_3d))
         print('RL Encoder:', utils.count_parameters(self.encoder_rl))

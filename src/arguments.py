@@ -104,6 +104,7 @@ def parse_args():
 	parser.add_argument('--huber', default=0, type=int)
 	parser.add_argument('--rl_enc', default="small", type=str)
 	parser.add_argument('--bsize_3d', default=8, type=int)
+	parser.add_argument('--project_conv', default=0, type=int)
 
 	args = parser.parse_args()
 
