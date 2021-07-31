@@ -10,6 +10,7 @@ THREED=$6
 HDIM=$7
 RLENC=$8
 CAM=$9
+PCONV=${10}
 
 python src/train.py \
     --algorithm $ALGO \
@@ -30,5 +31,6 @@ python src/train.py \
 	--bottleneck 16 \
     --hidden_dim $HDIM \
     --rl_enc $RLENC \
-    --cameras $CAM
+    --cameras $CAM \
+	--project_conv $PCONV
 
