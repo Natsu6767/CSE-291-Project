@@ -143,6 +143,7 @@ class Encoder_3d(nn.Module):
             num_filters = 32
             self.feature_extraction1 = [nn.Conv2d(3, num_filters, 4, stride=2, padding=1), nn.ReLU()]
             self.feature_extraction2 = []
+            self.feature_extraction3 = []
 
             for _ in range(1, 4):
                 self.feature_extraction1.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
@@ -151,14 +152,18 @@ class Encoder_3d(nn.Module):
                 self.feature_extraction2.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
                 self.feature_extraction2.append(nn.ReLU())
 
+            self.feature_extraction3.append(nn.Conv2d(num_filters, 64, 4, stride=2, padding=1))
+            self.feature_extraction3.append(nn.ReLU())
+
             self.feature_extraction1 = nn.Sequential(*self.feature_extraction1)
             self.feature_extraction2 = nn.Sequential(*self.feature_extraction2)
+            self.feature_extraction3 = nn.Sequential(*self.feature_extraction3)
 
-            self.depth_layer = 16
-            self.feat_3d_ch = 32 // self.depth_layer
+            self.depth_layer = 8
+            self.feat_3d_ch = 64 // self.depth_layer
 
-            self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 64, 3, stride=1, padding=1) # 32 x 16 x 16 x 16
-            self.conv3d_2 = nn.ConvTranspose3d(64, args.bottleneck, 3, stride=1, padding=1)  # 16 x 16 x 16 x 16
+            self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 64, 4, stride=2, padding=1) # 64 x 16 x 16 x 16
+            self.conv3d_2 = nn.ConvTranspose3d(64, args.bottleneck, 4, stride=2, padding=1)  # 16 x 32 x 32 x 32
         else:
             self.feature_extraction = ImpalaConv(3)  # 64 x 8 x 8
             self.depth_layer = 8
@@ -171,19 +176,16 @@ class Encoder_3d(nn.Module):
 
     def forward(self, img):
         # img -> 2d feature
-
-        #img = self.norm(img)
-
-
-        # reshape
         if self.use_double_enc:
             z_2d_rl = self.feature_extraction1(img)  # 32 x 26 x 26
             z_2d = self.feature_extraction2(z_2d_rl) # 32 x 16 x 16
+            z_2d_2 = self.feature_extraction3(z_2d)
         else:
             z_2d = self.feature_extraction(img)
+            z_2d_2 = z_2d
 
-        B, C, H, W = z_2d.shape  # 128 x 8 x 8
-        z_3d = z_2d.reshape(
+        B, C, H, W = z_2d_2.shape  # 128 x 8 x 8
+        z_3d = z_2d_2.reshape(
             [-1, self.feat_3d_ch, self.depth_layer, H, W])  # unproj  16x8x8x8
 
         # 3d convnet
@@ -207,20 +209,36 @@ class Encoder_3d(nn.Module):
 class Decoder_3d(nn.Module):
     def __init__(self, args):
         super(Decoder_3d, self).__init__()
-        self.conv3 = nn.Conv2d(args.bottleneck * 16, args.bottleneck*8, 1)
-        self.upconv3 = nn.ConvTranspose2d(args.bottleneck*8, args.bottleneck*4, kernel_size=4, stride=2, padding=1)
-        self.upconv4 = nn.ConvTranspose2d(args.bottleneck*4, 32, kernel_size=4, stride=2, padding=1)
+        self.dec = list()
+        if args.double_enc:
+            self.dec.append(nn.Conv2d(args.bottleneck * 32, args.bottleneck*8, 1))
+            self.dec.append(nn.ReLU())
 
-        self.upconv_final = nn.ConvTranspose2d(32, 3, kernel_size=4, stride=2, padding=1)
+            self.dec.append(nn.ConvTranspose2d(args.bottleneck*8, args.bottleneck*4, 4, 2, 1))
+            self.dec.append(nn.ReLU())
+
+            self.dec.append(nn.ConvTranspose2d(args.bottleneck*4, 32, 3, 1, 1))
+            self.dec.append(nn.ReLU())
+
+            self.dec.append(nn.ConvTranspose2d(32, 3, 3, 1, 1))
+
+        else:
+            self.dec.append(nn.Conv2d(args.bottleneck*16, args.bottleneck*8, 1))
+            self.dec.append(nn.ReLU())
+
+            self.dec.append(nn.ConvTranspose2d(args.bottleneck*8, args.bottleneck*4, 4, 2, 1))
+            self.dec.append(nn.ReLU())
+
+            self.dec.append(nn.ConvTranspose2d(args.bottleneck*4, 32, 4, 2, 1))
+            self.dec.append(nn.ReLU())
+
+            self.dec.append(nn.ConvTranspose2d(32, 3, 3, 1, 1))
+
+        self.dec = nn.Sequential(*self.dec)
 
     def forward(self, code):
         code = code.view(-1, code.size(1) * code.size(2), code.size(3), code.size(4))  # n x 16 x 16
-        code = F.leaky_relu(self.conv3(code))  # 512 x 16 x 16
-
-        # Decoder
-        code = F.leaky_relu(self.upconv3(code))  # 256 x 32 x 32
-        code = F.leaky_relu(self.upconv4(code))  # 32 x 64 x 64
-        output = self.upconv_final(code)  # 3 x 128 x 128
+        output = self.dec(code)
 
         return output
 
@@ -261,7 +279,6 @@ class Posenet_3d(nn.Module):
                     zeros_(m.bias)
 
     def forward(self, input):
-        #input = self.norm(input)
         out_conv1 = self.conv1(input)
         out_conv2 = self.conv2(out_conv1)
         out_conv3 = self.conv3(out_conv2)

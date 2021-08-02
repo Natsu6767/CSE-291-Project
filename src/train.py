@@ -138,6 +138,8 @@ def main(args):
 		a_obs_shape = (32, 26, 26)
 	elif args.rl_enc == "large":
 		a_obs_shape = (32, 16, 16)
+	elif args.rl_enc == "latent" and args.double_enc:
+		a_obs_shape = (args.bottleneck*32, 32, 32)
 	elif args.rl_enc == "latent":
 		a_obs_shape = (args.bottleneck*16, 16, 16)
 	elif args.rl_enc == "impala":
