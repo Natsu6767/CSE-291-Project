@@ -11,6 +11,7 @@ HDIM=$7
 RLENC=$8
 CAM=$9
 PCONV=${10}
+DENC=${11}
 
 python src/train.py \
     --algorithm $ALGO \
@@ -32,5 +33,6 @@ python src/train.py \
     --hidden_dim $HDIM \
     --rl_enc $RLENC \
     --cameras $CAM \
-	--project_conv $PCONV
+	--project_conv $PCONV \
+	--double_enc $DENC
 
