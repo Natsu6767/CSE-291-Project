@@ -135,26 +135,37 @@ class Encoder_3d(nn.Module):
     def __init__(self, args):
         super(Encoder_3d, self).__init__()
 
-        self.feature_extraction = ImpalaConv(3)  # 64 x 8 x 8
+
         self.rl_out_type = args.rl_enc
+        self.use_double_enc = args.double_enc
 
-        """num_filters = 32
-        self.feature_extraction1 = [nn.Conv2d(3, num_filters, 4, stride=2, padding=1), nn.ReLU()]
-        self.feature_extraction2 = []
-        for _ in range(1, 4):
-                    self.feature_extraction1.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
-                    self.feature_extraction1.append(nn.ReLU())
-        for _ in range(4, 9):
-            self.feature_extraction2.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
-            self.feature_extraction2.append(nn.ReLU())
+        if self.use_double_enc:
+            num_filters = 32
+            self.feature_extraction1 = [nn.Conv2d(3, num_filters, 4, stride=2, padding=1), nn.ReLU()]
+            self.feature_extraction2 = []
 
-        self.feature_extraction1 = nn.Sequential(*self.feature_extraction1)
-        self.feature_extraction2 = nn.Sequential(*self.feature_extraction2)"""
-        self.depth_layer = 8
-        self.feat_3d_ch = 64 // self.depth_layer
+            for _ in range(1, 4):
+                self.feature_extraction1.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
+                self.feature_extraction1.append(nn.ReLU())
+            for _ in range(4, 9):
+                self.feature_extraction2.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
+                self.feature_extraction2.append(nn.ReLU())
 
-        self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 32, 4, stride=2, padding=1) # 32 x 16 x 16 x 16
-        self.conv3d_2 = nn.ConvTranspose3d(32, args.bottleneck, 3, stride=1, padding=1)  # 16 x 16 x 16 x 16
+            self.feature_extraction1 = nn.Sequential(*self.feature_extraction1)
+            self.feature_extraction2 = nn.Sequential(*self.feature_extraction2)
+
+            self.depth_layer = 16
+            self.feat_3d_ch = 32 // self.depth_layer
+
+            self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 64, 3, stride=1, padding=1) # 32 x 16 x 16 x 16
+            self.conv3d_2 = nn.ConvTranspose3d(64, args.bottleneck, 3, stride=1, padding=1)  # 16 x 16 x 16 x 16
+        else:
+            self.feature_extraction = ImpalaConv(3)  # 64 x 8 x 8
+            self.depth_layer = 8
+            self.feat_3d_ch = 64 // self.depth_layer
+            self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 32, 4, stride=2, padding=1)  # 32 x 16 x 16 x 16
+            self.conv3d_2 = nn.ConvTranspose3d(32, args.bottleneck, 3, stride=1, padding=1)  # 16 x 16 x 16 x 16
+
         self.apply(orthogonal_init)
 
 
@@ -162,11 +173,15 @@ class Encoder_3d(nn.Module):
         # img -> 2d feature
 
         #img = self.norm(img)
-        #z_2d_rl = self.feature_extraction1(img)  # 32 x 26 x 26
-        #_2d = self.feature_extraction2(z_2d_rl) # 32 x 16 x 16
+
 
         # reshape
-        z_2d = self.feature_extraction(img)
+        if self.use_double_enc:
+            z_2d_rl = self.feature_extraction1(img)  # 32 x 26 x 26
+            z_2d = self.feature_extraction2(z_2d_rl) # 32 x 16 x 16
+        else:
+            z_2d = self.feature_extraction(img)
+
         B, C, H, W = z_2d.shape  # 128 x 8 x 8
         z_3d = z_2d.reshape(
             [-1, self.feat_3d_ch, self.depth_layer, H, W])  # unproj  16x8x8x8
@@ -185,7 +200,7 @@ class Encoder_3d(nn.Module):
             rl_out = z_3d.clone()
         elif self.rl_out_type == "impala":
             rl_out = z_2d.clone()
-    
+
         return rl_out, z_3d
 
 
