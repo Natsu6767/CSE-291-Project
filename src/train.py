@@ -140,6 +140,8 @@ def main(args):
 		a_obs_shape = (32, 16, 16)
 	elif args.rl_enc == "latent":
 		a_obs_shape = (args.bottleneck*16, 16, 16)
+	elif args.rl_enc == "impala":
+		a_obs_shape = (64, 8, 8)
 	else:
 		a_obs_shape = "ERROR"
 

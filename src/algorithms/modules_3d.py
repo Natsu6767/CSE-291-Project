@@ -117,9 +117,9 @@ class ImpalaConv(nn.Module):
 
         self.block_1 = BaseBlock(c, 16)
         self.block_2 = BaseBlock(16, 32)
-        #self.block_3 = BaseBlock(32, 64)
+        self.block_3 = BaseBlock(32, 64)
 
-        self._body = nn.Sequential(self.block_1, self.block_2)#, self.block_3)
+        self._body = nn.Sequential(self.block_1, self.block_2, self.block_3)
 
     def forward(self, x):
         return self._body(x)
@@ -127,7 +127,7 @@ class ImpalaConv(nn.Module):
     def output_size(self, size):
         size = self.block_1.output_size(size)
         size = self.block_2.output_size(size)
-        #size = self.block_3.output_size(size)
+        size = self.block_3.output_size(size)
         return size
 
 
@@ -135,9 +135,10 @@ class Encoder_3d(nn.Module):
     def __init__(self, args):
         super(Encoder_3d, self).__init__()
 
-        #self.feature_extraction = ImpalaConv(3)  # 64 x 8 x 8
+        self.feature_extraction = ImpalaConv(3)  # 64 x 8 x 8
         self.rl_out_type = args.rl_enc
-        num_filters = 32
+
+        """num_filters = 32
         self.feature_extraction1 = [nn.Conv2d(3, num_filters, 4, stride=2, padding=1), nn.ReLU()]
         self.feature_extraction2 = []
         for _ in range(1, 4):
@@ -148,11 +149,11 @@ class Encoder_3d(nn.Module):
             self.feature_extraction2.append(nn.ReLU())
 
         self.feature_extraction1 = nn.Sequential(*self.feature_extraction1)
-        self.feature_extraction2 = nn.Sequential(*self.feature_extraction2)
-        self.depth_layer = 16
-        self.feat_3d_ch = 32 // self.depth_layer
+        self.feature_extraction2 = nn.Sequential(*self.feature_extraction2)"""
+        self.depth_layer = 8
+        self.feat_3d_ch = 64 // self.depth_layer
 
-        self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 32, 3, stride=1, padding=1) # 32 x 16 x 16 x 16
+        self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 32, 4, stride=2, padding=1) # 32 x 16 x 16 x 16
         self.conv3d_2 = nn.ConvTranspose3d(32, args.bottleneck, 3, stride=1, padding=1)  # 16 x 16 x 16 x 16
         self.apply(orthogonal_init)
 
@@ -161,10 +162,12 @@ class Encoder_3d(nn.Module):
         # img -> 2d feature
 
         #img = self.norm(img)
-        z_2d_rl = self.feature_extraction1(img)  # 32 x 26 x 26
-        z_2d = self.feature_extraction2(z_2d_rl) # 32 x 16 x 16
-        B, C, H, W = z_2d.shape  # 128 x 8 x 8
+        #z_2d_rl = self.feature_extraction1(img)  # 32 x 26 x 26
+        #_2d = self.feature_extraction2(z_2d_rl) # 32 x 16 x 16
+
         # reshape
+        z_2d = self.feature_extraction(img)
+        B, C, H, W = z_2d.shape  # 128 x 8 x 8
         z_3d = z_2d.reshape(
             [-1, self.feat_3d_ch, self.depth_layer, H, W])  # unproj  16x8x8x8
 
@@ -173,12 +176,16 @@ class Encoder_3d(nn.Module):
         z_3d = F.leaky_relu(z_3d)
         z_3d = self.conv3d_2(z_3d)  # bottleneck x 16 x 16 x 16
         z_3d = F.leaky_relu(z_3d)
+
         if self.rl_out_type == "small":
-            rl_out = z_2d_rl
+            rl_out = z_2d_rl.clone()
         elif self.rl_out_type == "large":
-            rl_out = z_2d
+            rl_out = z_2d.clone()
         elif self.rl_out_type == "latent":
-            rl_out = z_3d
+            rl_out = z_3d.clone()
+        elif self.rl_out_type == "impala":
+            rl_out = z_2d.clone()
+    
         return rl_out, z_3d
 
 
