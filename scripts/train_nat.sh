@@ -12,7 +12,7 @@ BSIZE=$8
 RLENC=$9
 PCONV=${10}
 DENC=${11}
-LR=${13}
+LR=${12}
 
 python src/train.py \
     --algorithm $ALGO \
