@@ -57,12 +57,8 @@ def visualize_configurations(env, args):
 def main(args):
 	# Set seed
 	utils.set_seed_everywhere(args.seed)
-	if args.cameras == 0:
-		cameras="dynamic"
-	elif args.cameras == 1:
-		cameras="dynamic_2"
-	else:
-		cameras="ERROR"
+	#if args.cameras == 0:
+	cameras="dynamic"
 
 	# Initialize environments
 	gym.logger.set_level(40)
