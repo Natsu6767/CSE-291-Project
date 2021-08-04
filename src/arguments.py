@@ -106,6 +106,7 @@ def parse_args():
 	parser.add_argument('--bsize_3d', default=8, type=int)
 	parser.add_argument('--project_conv', default=0, type=int)
 	parser.add_argument('--double_enc', default=0, type=int)
+	parser.add_argument('--update_3d_freq', default=1, type=int)
 
 	args = parser.parse_args()
 

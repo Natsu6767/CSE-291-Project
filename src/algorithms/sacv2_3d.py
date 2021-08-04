@@ -24,6 +24,7 @@ class SACv2_3D(object):
         self.log_3d_imgs = args.log_3d_imgs
         self.huber = args.huber
         self.bsize_3d = args.bsize_3d
+        self.update_3d_freq = args.update_3d_freq
 
         assert not args.from_state and not args.use_vit, 'not supported yet'
 
@@ -349,7 +350,8 @@ class SACv2_3D(object):
             self.update_actor_and_alpha(obs.detach(), L, writer, step)
             utils.soft_update_params(self.critic, self.critic_target, self.tau)
 
-        if self.train_3d:
+        freq_3d = self.update_freq * self.update_3d_freq
+        if self.train_3d and step % freq_3d == 0:
             n, c, h, w = imgs.shape
             imgs = imgs.view(n, 2, c//2, h, w)
             imgs = imgs[: self.bsize_3d]
