@@ -161,8 +161,9 @@ def main(args):
 			if step > start_step:
 				L.log('train/duration', time.time() - start_time, step)
 				start_time = time.time()
-				t_vid_tensor = torch.tensor(video_tensor).unsqueeze(0).float().div(255)
-				writer.add_video("Training Video", t_vid_tensor, step)
+				if step % args.log_train_video == 0:
+					t_vid_tensor = torch.tensor(video_tensor).unsqueeze(0).float().div(255)
+					writer.add_video("Training Video", t_vid_tensor, step)
 				L.dump(step)
 
 			# Evaluate agent periodically

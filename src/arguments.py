@@ -100,13 +100,14 @@ def parse_args():
 	parser.add_argument('--lr_3dc', default=1e-3, type=float)
 	parser.add_argument('--lr_3dp', default=1e-3, type=float)
 	parser.add_argument('--buffer_capacity', default="-1", type=str)
-	parser.add_argument('--log_3d_imgs', default="2k", type=str)
+	parser.add_argument('--log_3d_imgs', default="15k", type=str)
 	parser.add_argument('--huber', default=0, type=int)
 	parser.add_argument('--rl_enc', default="small", type=str)
 	parser.add_argument('--bsize_3d', default=8, type=int)
 	parser.add_argument('--project_conv', default=0, type=int)
 	parser.add_argument('--double_enc', default=0, type=int)
 	parser.add_argument('--update_3d_freq', default=1, type=int)
+	parser.add_argument('--log_train_video', default="50k", type=str)
 
 	args = parser.parse_args()
 
@@ -125,6 +126,7 @@ def parse_args():
 	args.eval_freq = int(args.eval_freq.replace('k', '000'))
 	args.buffer_capacity = int(args.buffer_capacity.replace('k', '000'))
 	args.log_3d_imgs = int(args.log_3d_imgs.replace('k', '000'))
+	args.log_train_video = int(args.log_train_video.replace('k', '000'))
 
 	if args.buffer_capacity == -1:
 		args.buffer_capacity = args.train_steps
