@@ -192,7 +192,7 @@ def main(args):
 					agent.gen_interpolate(images_rgb, writer, step)
 
 			# Save agent periodically
-			if step > start_step and step % args.save_freq == 0:
+			if step == 100000 or step == args.train_steps:# step > start_step and step % args.save_freq == 0:
 				torch.save(agent, os.path.join(model_dir, f'{step}.pt'))
 
 			L.log('train/episode_reward', episode_reward, step)
