@@ -7,12 +7,9 @@ SEED=$3
 TRAIN_STEPS=$4
 RL=$5
 THREED=$6
-UPDATE_3D_FREQ=$7
-BSIZE=$8
-RLENC=$9
-PCONV=${10}
-DENC=${11}
-LR=${12}
+IMPALA=$7
+LATENT=$8
+PCONV=$9
 
 python src/train.py \
     --algorithm $ALGO \
@@ -31,12 +28,7 @@ python src/train.py \
 	--init_steps 1000 \
 	--prop_to_3d 1 \
 	--bottleneck 16 \
-	--update_3d_freq $UPDATE_3D_FREQ \
-	--bsize_3d $BSIZE \
-    --rl_enc $RLENC \
-	--project_conv $PCONV \
-	--double_enc $DENC \
-	--lr_3d $LR \
-	--lr_3dc $LR \
-	--lr_3dp $LR
+    --use_impala $IMPALA \
+	--use_latent $LATENT \
+	--project_conv $PCONV
 
