@@ -17,16 +17,6 @@ def stn(x, theta, padding_mode='zeros'):
 
     return img
 
-class NormalizeImg(nn.Module):
-    def __init__(self, mean_zero=False):
-        super().__init__()
-        self.mean_zero = mean_zero
-
-    def forward(self, x):
-        if self.mean_zero:
-            return x / 255. - 0.5
-        return x / 255.
-
 def orthogonal_init(m):
     if isinstance(m, nn.Linear):
         nn.init.orthogonal_(m.weight.data)
@@ -136,12 +126,12 @@ class Encoder_3d(nn.Module):
         super(Encoder_3d, self).__init__()
 
 
-        self.rl_out_type = args.rl_enc
-        self.use_double_enc = args.double_enc
+        self.use_impala = args.use_impala
+        self.rl_latent = args.use_latent
 
-        if self.use_double_enc:
+        if not self.use_impala:
             num_filters = 32
-            self.feature_extraction1 = [nn.Conv2d(3, num_filters, 4, stride=2, padding=1), nn.ReLU()]
+            self.feature_extraction1 = [nn.Conv2d(3, num_filters, 3, stride=2, padding=1), nn.ReLU()]
             self.feature_extraction2 = []
             self.feature_extraction3 = []
 
@@ -152,8 +142,8 @@ class Encoder_3d(nn.Module):
                 self.feature_extraction2.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
                 self.feature_extraction2.append(nn.ReLU())
 
-            self.feature_extraction3.append(nn.Conv2d(num_filters, 64, 4, stride=2, padding=1))
-            self.feature_extraction3.append(nn.ReLU())
+            self.feature_extraction2.append(nn.Conv2d(num_filters, 64, 4, stride=2, padding=1))
+            self.feature_extraction2.append(nn.ReLU())
 
             self.feature_extraction1 = nn.Sequential(*self.feature_extraction1)
             self.feature_extraction2 = nn.Sequential(*self.feature_extraction2)
@@ -168,40 +158,41 @@ class Encoder_3d(nn.Module):
             self.feature_extraction = ImpalaConv(3)  # 64 x 8 x 8
             self.depth_layer = 8
             self.feat_3d_ch = 64 // self.depth_layer
-            self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 32, 4, stride=2, padding=1)  # 32 x 16 x 16 x 16
-            self.conv3d_2 = nn.ConvTranspose3d(32, args.bottleneck, 3, stride=1, padding=1)  # 16 x 16 x 16 x 16
+            self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 64, 4, stride=2, padding=1)  # 32 x 16 x 16 x 16
+            self.conv3d_2 = nn.ConvTranspose3d(64, args.bottleneck, 4, stride=2, padding=1)  # 16 x 16 x 16 x 16
 
         self.apply(orthogonal_init)
 
 
     def forward(self, img):
         # img -> 2d feature
-        if self.use_double_enc:
-            z_2d_rl = self.feature_extraction1(img)  # 32 x 26 x 26
-            z_2d = self.feature_extraction2(z_2d_rl) # 32 x 16 x 16
-            z_2d_2 = self.feature_extraction3(z_2d)
-        else:
-            z_2d = self.feature_extraction(img)
-            z_2d_2 = z_2d
 
-        B, C, H, W = z_2d_2.shape  # 128 x 8 x 8
-        z_3d = z_2d_2.reshape(
-            [-1, self.feat_3d_ch, self.depth_layer, H, W])  # unproj  16x8x8x8
+        if not self.use_impala:
+            z_2d_rl = self.feature_extraction1(img)  # 32 x 26 x 26
+            z_2d = self.feature_extraction2(z_2d_rl) # 64 x 8 x 8
+        else:
+            z_2d = self.feature_extraction(img) # 64 x 8 x 8
+
+        B, C, H, W = z_2d.shape  # 128 x 8 x 8
+        z_3d = z_2d.reshape(
+            [-1, self.feat_3d_ch, self.depth_layer, H, W])  # unproj  8x8x8x8
 
         # 3d convnet
         z_3d = self.conv3d_1(z_3d)  # 64 x 16 x 16 x 16
         z_3d = F.leaky_relu(z_3d)
-        z_3d = self.conv3d_2(z_3d)  # bottleneck x 16 x 16 x 16
+        z_3d = self.conv3d_2(z_3d)  # bottleneck x 32 x 32 x 32
         z_3d = F.leaky_relu(z_3d)
 
-        if self.rl_out_type == "small":
-            rl_out = z_2d_rl.clone()
-        elif self.rl_out_type == "large":
-            rl_out = z_2d.clone()
-        elif self.rl_out_type == "latent":
-            rl_out = z_3d.clone()
-        elif self.rl_out_type == "impala":
-            rl_out = z_2d.clone()
+        if not self.use_impala:
+            if self.rl_latent:
+                rl_out = z_3d.clone()
+            else:
+                rl_out = z_2d_rl.clone()
+        else:
+            if self.rl_latent:
+                rl_out = z_3d.clone()
+            else:
+                rl_out = z_2d.clone()
 
         return rl_out, z_3d
 
@@ -210,7 +201,7 @@ class Decoder_3d(nn.Module):
     def __init__(self, args):
         super(Decoder_3d, self).__init__()
         self.dec = list()
-        if args.double_enc:
+        """if not args.use_impala:
             self.dec.append(nn.Conv2d(args.bottleneck * 32, args.bottleneck*8, 1))
             self.dec.append(nn.ReLU())
 
@@ -222,17 +213,17 @@ class Decoder_3d(nn.Module):
 
             self.dec.append(nn.ConvTranspose2d(32, 3, 3, 1, 1))
 
-        else:
-            self.dec.append(nn.Conv2d(args.bottleneck*16, args.bottleneck*8, 1))
-            self.dec.append(nn.ReLU())
+        else:"""
+        self.dec.append(nn.Conv2d(args.bottleneck*32, args.bottleneck*8, 1))
+        self.dec.append(nn.ReLU())
 
-            self.dec.append(nn.ConvTranspose2d(args.bottleneck*8, args.bottleneck*4, 4, 2, 1))
-            self.dec.append(nn.ReLU())
+        self.dec.append(nn.ConvTranspose2d(args.bottleneck*8, args.bottleneck*4, 4, 2, 1))
+        self.dec.append(nn.ReLU())
 
-            self.dec.append(nn.ConvTranspose2d(args.bottleneck*4, 32, 4, 2, 1))
-            self.dec.append(nn.ReLU())
+        self.dec.append(nn.ConvTranspose2d(args.bottleneck*4, 32, 3, 1, 1))
+        self.dec.append(nn.ReLU())
 
-            self.dec.append(nn.ConvTranspose2d(32, 3, 3, 1, 1))
+        self.dec.append(nn.ConvTranspose2d(32, 3, 3, 1, 1))
 
         self.dec = nn.Sequential(*self.dec)
 
@@ -259,8 +250,6 @@ class Posenet_3d(nn.Module):
     def __init__(self):
         super(Posenet_3d, self).__init__()
         self.nb_ref_imgs = 1
-
-        self.norm = NormalizeImg()
 
         conv_planes = [16, 32, 64, 128, 256, 256, 256]
         self.conv1 = conv(3 * (1 + self.nb_ref_imgs), conv_planes[0], kernel_size=7)

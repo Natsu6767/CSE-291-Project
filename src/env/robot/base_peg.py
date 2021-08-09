@@ -18,8 +18,7 @@ class BaseEnv(robot_env.RobotEnv):
     """Superclass for all robot environments.
     """
     def __init__(
-
-        self, model_path, cameras, n_substeps=20, gripper_rotation=[0,1,1,0], 
+        self, model_path, n_substeps=20, block_gripper=False, gripper_rotation=[0, 1,1,0], 
         has_object=False, image_size=84, reset_free=False, distance_threshold=0.045, action_penalty=0,
         observation_type='image', reward_type='dense', reward_bonus=True, use_xyz=False, action_scale=0.05, render=False
     ):
@@ -27,6 +26,7 @@ class BaseEnv(robot_env.RobotEnv):
         Args:
             model_path (string): path to the environments XML file
             n_substeps (int): number of substeps the simulation runs on every call to step
+            block_gripper (boolean): whether or not the gripper is blocked (i.e. not movable) or not
             gripper_rotation (array): fixed rotation of the end effector, expressed as a quaternion
             has_object (boolean): whether or not the environment has an object
             image_size (int): size of image observations, if applicable
@@ -43,6 +43,7 @@ class BaseEnv(robot_env.RobotEnv):
         self.reference_xml = et.parse(model_path)
         self.root = self.reference_xml.getroot()
         self.n_substeps = n_substeps
+        self.block_gripper = block_gripper
         self.gripper_rotation = np.array(gripper_rotation, dtype=np.float32)
         self.has_object = has_object
         self.distance_threshold = distance_threshold
@@ -54,12 +55,11 @@ class BaseEnv(robot_env.RobotEnv):
         self.reward_bonus = reward_bonus
         self.use_xyz = use_xyz
         self.action_scale = action_scale
-        self.closed_angle = 0
-        self.center_of_table = np.array([1.655, 0.3, 0.65625])
-        self.default_z_offset = 0.1
-        self.max_z = 1.2
+        self.closed_angle = 0.45    
+        self.center_of_table = np.array([1.35, 0.25, 0.7])
+        self.default_z_offset = 0.4
+
         self.render_for_human = render
-        self.cameras = cameras
         super(BaseEnv, self).__init__(
             model_path=model_path, n_substeps=n_substeps, n_actions=4,
             initial_qpos={})
@@ -80,39 +80,50 @@ class BaseEnv(robot_env.RobotEnv):
 
     # Gripper helper
     # ----------------------------
+    
     def _gripper_sync(self):
+        # move the left_spring_joint joint[14] and right_spring_joint(joint[10]) in the right angle
+        # print("Number of elements in data.qpos: {}".format(len(self.sim.data.qpos)))
+        #self.sim.data.qpos[10] = self._gripper_consistent(self.sim.data.qpos[7:10])
+        #self.sim.data.qpos[12] = self._gripper_consistent(self.sim.data.qpos[10: 13])
         self.sim.data.qpos[10] = 0.1
         self.sim.data.qpos[12] = -0.5
-        
     def _gripper_consistent(self, angle):
+        #print("Angle shape is {}".format(len(angle)))
+        x = -0.006496 + 0.0315 * math.sin(angle[0]) + 0.04787744772 * math.cos(angle[0] + angle[1] - 0.1256503306) - 0.02114828598 * math.sin(angle[0] + angle[1] + angle[2] - 0.1184899592)
+        y = -0.0186011 - 0.0315 * math.cos(angle[0]) + 0.04787744772 * math.sin(angle[0] + angle[1] - 0.1256503306) + 0.02114828598 * math.cos(angle[0] + angle[1] + angle[2] - 0.1184899592)
+        #x = -0.006496 + 0.0315 * math.sin(angle[0]) + 0.04787744772 * math.cos(angle[0] + angle[1] - 0.1256503306) 
+        #y = -0.0186011 - 0.0315 * math.cos(angle[0]) + 0.04787744772 * math.sin(angle[0] + angle[1] - 0.1256503306)
+        #return math.atan2(y, x) + 0.6789024115
         return 0
     
     # RobotEnv methods
     # ----------------------------
     def _step_callback(self):
-        self.sim.forward()
+        if self.block_gripper:
+            self.sim.data.set_joint_qpos('right_outer_knuckle', self.closed_angle)
+            self.sim.data.set_joint_qpos('left_outer_knuckle', self.closed_angle)
+            self._gripper_sync()
+            self.sim.forward()
+        else:
+            # sync the spring link
+            #self._gripper_sync()
+            self.sim.forward()
 
-    # Limiting gripper positions
     def _limit_gripper(self, gripper_pos, pos_ctrl):
-
-        if gripper_pos[0] > self.center_of_table[0] -0.205 + 0.1:
+        if gripper_pos[0] > 1.7:
             pos_ctrl[0] = min(pos_ctrl[0], 0)
-        if gripper_pos[0] < self.center_of_table[0] -0.205 - 0.1:
+        if gripper_pos[0] < 1.25:
             pos_ctrl[0] = max(pos_ctrl[0], 0)
-        if gripper_pos[1] > self.center_of_table[1] + 0.15:
+        if gripper_pos[1] > 0.65:
             pos_ctrl[1] = min(pos_ctrl[1], 0)
-        if gripper_pos[1] < self.center_of_table[1] - 0.15:
+        if gripper_pos[1] < -0.25:
             pos_ctrl[1] = max(pos_ctrl[1], 0)
-        if gripper_pos[2] > self.max_z:
-            pos_ctrl[2] = min(pos_ctrl[2], 0)
-        if gripper_pos[2] < 0.74:
-            pos_ctrl[2] = max(pos_ctrl[2], 0)
-
         return pos_ctrl
-
 
     def _set_action(self, action):
         assert action.shape == (4,)
+        action[3] = 1. # make sure gripper is open
 
         action = action.copy() # ensure that we don't change the action outside of this scope
         pos_ctrl, gripper_ctrl = action[:3], action[3]
@@ -125,9 +136,10 @@ class BaseEnv(robot_env.RobotEnv):
         pos_ctrl *= self.action_scale # limit maximum change in position
         if not self.use_xyz:
             pos_ctrl[2] = 0
-
         gripper_ctrl = np.array([gripper_ctrl, gripper_ctrl])
         assert gripper_ctrl.shape == (2,)
+        if self.block_gripper:
+            gripper_ctrl = np.zeros_like(gripper_ctrl)
         action = np.concatenate([pos_ctrl, self.gripper_rotation, gripper_ctrl])
 
         # Apply action to simulation.
@@ -135,7 +147,16 @@ class BaseEnv(robot_env.RobotEnv):
         utils.mocap_set_action(self.sim, action)
 
     def _get_state_obs(self):
-        raise NotImplementedError('_get_state_obs has not been implemented for this task!')
+        grip_pos = self.sim.data.get_site_xpos('ee_2') - self.table_xpos
+        dt = self.sim.nsubsteps * self.sim.model.opt.timestep
+        grip_velp = self.sim.data.get_site_xvelp('ee_2') * dt
+        goal_pos = self.goal - self.table_xpos
+        object_pos = object_rot = object_velp = object_velr = np.zeros_like(grip_pos)
+        object_dist = np.zeros(1)
+        goal_dist = np.array([self.goal_distance(grip_pos, goal_pos, self.use_xyz)])
+        return np.concatenate([
+            grip_pos, grip_velp, object_pos, object_rot, object_velp, object_dist, goal_pos, goal_dist
+        ])
 
     def _get_achieved_goal(self):
         raise NotImplementedError('_get_achieved_goal has not been implemented for this task!')
@@ -155,9 +176,9 @@ class BaseEnv(robot_env.RobotEnv):
             raise ValueError(f'Received invalid observation type "{self.observation_type}"!')
 
         return {
-            'observation': obs,
-            'achieved_goal': achieved_goal,
-            'desired_goal': self.goal
+            'observation': obs.copy(),
+            'achieved_goal': achieved_goal.copy(),
+            'desired_goal': self.goal.copy()
         }
 
 
@@ -205,8 +226,6 @@ class BaseEnv(robot_env.RobotEnv):
         assert gripper_target is not None, 'must configure gripper in task-specific class'
         self.sim.data.set_mocap_pos('robot0:mocap2', gripper_target)
         self.sim.data.set_mocap_quat('robot0:mocap2', self.gripper_rotation)
-        self.sim.data.set_joint_qpos('right_outer_knuckle_joint', self.closed_angle)
-        self._gripper_sync()
         for _ in range(10):
             self.sim.step()
         self.initial_gripper_xpos = self.sim.data.get_site_xpos('ee_2').copy()
@@ -229,16 +248,10 @@ class BaseEnv(robot_env.RobotEnv):
 
     def render_obs(self, mode=None, width=448, height=448, camera_id=None):
         self._render_callback()
+        data_1 = self.sim.render(width, height, camera_name='camera0', depth=False)
+        #data_2 = self.sim.render(width, height, camera_name='first_person', depth=False)
+        #data = np.stack((data_1[::-1, :, :], data_2[::-1, :, :]))
+        return data_1[::-1,:,:]
 
-        cam1 = "front" if self.cameras == "dynamic" else "front_2"
-        cameras = [cam1, self.cameras]
-        data = list()
-        for cam_name in cameras:
-            data.append(self.sim.render(
-                width, height, camera_name="camera_" + cam_name, depth=False
-            )[::-1, :, :])
-        return np.stack(data)
-
-
-def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
+    def render(self, mode=None, width=720, height=720, depth=False, camera_id = None):
         return super(BaseEnv, self).render(mode, width, height)

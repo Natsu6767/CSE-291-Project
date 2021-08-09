@@ -26,32 +26,31 @@ class PickPlaceEnv(BaseEnv, utils.EzPickle):
 		object_pos = self.sim.data.get_site_xpos('object0').copy()
 		gripper_angle = self.sim.data.get_joint_qpos('right_outer_knuckle_joint').copy()
 		goal_pos = goal.copy()
+
 		d_eef_obj = self.goal_distance(eef_pos, object_pos, self.use_xyz)
-		d_eef_obj_xy = self.goal_distance(eef_pos, object_pos, use_xyz  = False)
 		d_obj_goal_xy = self.goal_distance(object_pos, goal_pos, use_xyz=False)
 		d_obj_goal_xyz = self.goal_distance(object_pos, goal_pos, use_xyz=True)
 		eef_z = eef_pos[2] - self.center_of_table.copy()[2] - self.default_z_offset
 		obj_z = object_pos[2] - self.center_of_table.copy()[2] - self.default_z_offset
 
 		reward = -0.03*np.square(self._pos_ctrl_magnitude) # action penalty
-		if not self.over_obj :
-		    reward += -2 * d_eef_obj_xy
-		    if d_eef_obj_xy <= 0.05 and not self.over_obj:
-		        self.over_obj = True
-		elif not self.lifted:
-			reward += 6*min(max(obj_z, 0), 0.09)  - 3*self.goal_distance(eef_pos, object_pos, self.use_xyz)
-			if obj_z > 0.09 and self.goal_distance(eef_pos, object_pos, self.use_xyz) <= 0.05 and not self.lifted:
+
+		# Staged rewards
+		if not self.lifted:
+			reward += -2*d_eef_obj # move towards object
+			reward += 6*min(max(obj_z, 0.), 0.09) # lift object
+			if obj_z >= 0.09 and not self.lifted:
 				self.lifted = True
-		elif not self.over_goal:
-			reward += 1 -3*d_obj_goal_xy + 6*min(max(obj_z, 0), 0.09)
-			if d_obj_goal_xy < 0.05 and not self.over_goal:
-				self.over_goal = True
-		elif not self.placed:
-			reward += 1 - 3*d_obj_goal_xyz + 5 * gripper_angle
-			if d_obj_goal_xyz < 0.05 and not self.placed:
+		else:
+			if not self.placed:
+				reward += -2*d_obj_goal_xy # move towards box
+				reward += 6*min(max(obj_z, 0.), 0.09) # lift object
+			else:
+				reward += 1-3*d_obj_goal_xyz # place object in box
+
+			reward += 0.1*min(max(eef_z, 0.), 0.09) # lift gripper
+			if d_obj_goal_xy <= self.distance_threshold and not self.placed:
 				self.placed = True
-		else :
-			reward += 6*min(max(eef_z, 0), 0.09)
 
 		return reward
 
@@ -89,10 +88,8 @@ class PickPlaceEnv(BaseEnv, utils.EzPickle):
 		], axis=0)
 
 	def _reset_sim(self):
-		self.over_obj = False
 		self.lifted = False # reset stage flag
 		self.placed = False # reset stage flag
-		self.over_goal = False
 
 		return BaseEnv._reset_sim(self)
 
@@ -117,10 +114,8 @@ class PickPlaceEnv(BaseEnv, utils.EzPickle):
 
 	def _sample_goal(self):
 		goal = self.center_of_table.copy()
-		object_qpos = self.sim.data.get_joint_qpos('box_hole:joint')
-		goal[0:2] = object_qpos[0:2]
+		goal[0] += 0.25
 		goal[1] += 0.075
-		goal[2] += 0.06
 		return BaseEnv._sample_goal(self, goal)
 
 	def _sample_initial_pos(self):

@@ -35,15 +35,14 @@ def register_robot_envs(n_substeps=20, observation_type='image', reward_type='de
 	)
 
 	register(
-		id='RobotPegbox-v0',
-		entry_point='env.robot.peg_in_box:PegBoxEnv',
+		id='RobotPeg-v0',
+		entry_point='env.robot.peg_hole:PegEnv',
 		kwargs=dict(
-			xml_path='robot/peg_in_box.xml',
+			xml_path='robot/peg_hole.xml',
 			n_substeps=n_substeps,
 			observation_type=observation_type,
 			reward_type=reward_type,
 			image_size=image_size,
-			use_xyz=use_xyz
 			
 		)
 	)

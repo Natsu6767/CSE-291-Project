@@ -94,7 +94,7 @@ def parse_args():
 	#3D
 	parser.add_argument('--train_rl', type=int)
 	parser.add_argument('--train_3d', type=int)
-	parser.add_argument('--prop_to_3d', default=0, type=int)
+	parser.add_argument('--prop_to_3d', default=1, type=int)
 	parser.add_argument('--bottleneck', default=16, type=int)
 	parser.add_argument('--lr_3d', default=1e-3, type=float)
 	parser.add_argument('--lr_3dc', default=1e-3, type=float)
@@ -102,10 +102,10 @@ def parse_args():
 	parser.add_argument('--buffer_capacity', default="-1", type=str)
 	parser.add_argument('--log_3d_imgs', default="15k", type=str)
 	parser.add_argument('--huber', default=0, type=int)
-	parser.add_argument('--rl_enc', default="small", type=str)
+	parser.add_argument('--use_latent', default=0, type=int)
+	parser.add_argument('--use_impala', default=0, type=int)
 	parser.add_argument('--bsize_3d', default=8, type=int)
 	parser.add_argument('--project_conv', default=0, type=int)
-	parser.add_argument('--double_enc', default=0, type=int)
 	parser.add_argument('--update_3d_freq', default=1, type=int)
 	parser.add_argument('--log_train_video', default="50k", type=str)
 

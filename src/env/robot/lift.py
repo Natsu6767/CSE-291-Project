@@ -23,43 +23,24 @@ class LiftEnv(BaseEnv, utils.EzPickle):
 		utils.EzPickle.__init__(self)
 
 	def compute_reward(self, achieved_goal, goal, info):
-		
 		eef_pos = self.sim.data.get_site_xpos('ee_2').copy()
 		object_pos = self.sim.data.get_site_xpos('object0').copy()
 		gripper_angle = self.sim.data.get_joint_qpos('right_outer_knuckle_joint').copy()
-		goal_pos = goal.copy()
+
 		d_eef_obj = self.goal_distance(eef_pos, object_pos, self.use_xyz)
-		d_eef_obj_xy = self.goal_distance(eef_pos, object_pos, use_xyz  = False)
-		d_obj_goal_xy = self.goal_distance(object_pos, goal_pos, use_xyz=False)
-		d_obj_goal_xyz = self.goal_distance(object_pos, goal_pos, use_xyz=True)
 		eef_z = eef_pos[2] - self.center_of_table.copy()[2] - self.default_z_offset
 		obj_z = object_pos[2] - self.center_of_table.copy()[2] - self.default_z_offset
-		
-		reward = -0.03*np.square(self._pos_ctrl_magnitude) # action penalty
-		if not self.over_obj :
-		    reward += -2 * d_eef_obj_xy
-		    if d_eef_obj_xy <= 0.05 and not self.over_obj:
-		        self.over_obj = True
-		elif not self.lifted:
-			reward += 6*min(max(obj_z, 0), self.goal_height)  - 3*self.goal_distance(eef_pos, object_pos, self.use_xyz)
-			if obj_z > self.goal_height and self.goal_distance(eef_pos, object_pos, self.use_xyz) <= 0.05 and not self.lifted:
-				self.lifted = True
-		else :
-			reward += 6*min(max(eef_z, 0), 0.09)
+
+		reward = -0.05*np.square(self._pos_ctrl_magnitude) # action penalty
+		reward += -2*d_eef_obj # move towards object
+		reward += 6*min(max(obj_z, 0.), 0.075) # lift object
 
 		return reward
-
-	def _reset_sim(self):
-		self.lifted = False # reset stage flag
-		self.over_obj = False
-		self.over_goal = False
-
-		return BaseEnv._reset_sim(self)
 	
 	def _is_success(self, achieved_goal, desired_goal):
 		''' The block is lifted above a certain threshold in z'''
 		object_pos = self.sim.data.get_site_xpos('object0').copy()
-		return (object_pos[2] - self.center_of_table.copy()[2] - self.default_z_offset) > self.goal_height
+		return (object_pos[2] - self.center_of_table.copy()[2] - self.default_z_offset) > 0.05
 
 
 	def _get_state_obs(self):
@@ -104,25 +85,19 @@ class LiftEnv(BaseEnv, utils.EzPickle):
 		object_xpos[0] += self.np_random.uniform(-0.05, 0.05, size=1)
 		object_xpos[1] += self.np_random.uniform(-0.1, 0.1, size=1)
 		object_xpos[2] += 0.08
-	
+		
 		object_qpos = self.sim.data.get_joint_qpos('object0:joint')
 		object_quat = object_qpos[-4:]
-		#object_quat[0] = self.np_random.uniform(-1, 1, size=1)
-		#object_quat[3] = self.np_random.uniform(-1, 1, size=1)
+		object_quat[0] = self.np_random.uniform(-1, 1, size=1)
+		object_quat[3] = self.np_random.uniform(-1, 1, size=1)
 
 		assert object_qpos.shape == (7,)
 		object_qpos[:3] = object_xpos[:3]
 		object_qpos[-4:] = object_quat
 		self.sim.data.set_joint_qpos('object0:joint', object_qpos)
 
-
 	def _sample_goal(self): # task has no goal
-		goal = self.center_of_table.copy() - np.array([0.3, 0, 0])
-		goal[0] += self.np_random.uniform(-0.05, 0.05, size=1)
-		goal[1] += self.np_random.uniform(-0.1, 0.1, size=1)
-		goal[2] += 0.08 + 0.05
-		self.goal_height = 0.15
-		return BaseEnv._sample_goal(self, goal)
+		return BaseEnv._sample_goal(self, self.center_of_table.copy())
 
 	def _sample_initial_pos(self):
 		gripper_target = self.center_of_table.copy() - np.array([0.3, 0, 0])

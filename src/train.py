@@ -57,8 +57,13 @@ def visualize_configurations(env, args):
 def main(args):
 	# Set seed
 	utils.set_seed_everywhere(args.seed)
-	#if args.cameras == 0:
-	cameras="dynamic"
+	if args.cameras == 0:
+		cameras="dynamic"
+	elif args.cameras == 1:
+		cameras="dynamic_2"
+	else:
+		print("ERRORR")
+		cameras = None
 
 	# Initialize environments
 	gym.logger.set_level(40)
@@ -115,36 +120,21 @@ def main(args):
 		obs_shape=env.observation_space.shape,
 		action_shape=env.action_space.shape,
 		capacity=args.train_steps,
-		batch_size=args.batch_size,
-		n_step=args.n_step,
-		episode_length=args.episode_length,
-		discount=args.discount
+		batch_size=args.batch_size
 	)
-
-	"""replay_buffer = utils.ReplayBuffer2(
-		obs_shape=env.observation_space.shape,
-		action_shape=env.action_space.shape,
-		capacity=args.buffer_capacity,
-		batch_size=args.batch_size,
-	)"""
 
 	print('Observations:', env.observation_space.shape)
 	print('Action space:', f'{args.action_space} ({env.action_space.shape[0]})')
-	if args.rl_enc == "small":
-		a_obs_shape = (32, 26, 26)
-	elif args.rl_enc == "large":
-		a_obs_shape = (32, 16, 16)
-	elif args.rl_enc == "latent" and args.double_enc:
+
+	if args.use_latent:
 		a_obs_shape = (args.bottleneck*32, 32, 32)
-	elif args.rl_enc == "latent":
-		a_obs_shape = (args.bottleneck*16, 16, 16)
-	elif args.rl_enc == "impala":
+	elif args.use_impala:
 		a_obs_shape = (64, 8, 8)
 	else:
-		a_obs_shape = "ERROR"
+		a_obs_shape = (32, 26, 26)
 
 	agent = make_agent(
-		obs_shape=a_obs_shape,#(args.bottleneck*16, 16, 16), #env.observation_space.shape,
+		obs_shape=a_obs_shape,
 		action_shape=env.action_space.shape,
 		args=args
 	)
@@ -178,7 +168,6 @@ def main(args):
 				# Evaluate 3D
 				if args.train_3d:
 					obs = env.reset()
-					#import pdb; pdb.set_trace()
 					# Execute one timestep to randomize the camera and environemnt.
 					a_eval = env.action_space.sample()
 					obs, _, _, _ = env.step(a_eval)
@@ -188,7 +177,7 @@ def main(args):
 					# Concatenate and convert to torch tensor and add unit batch dimensions
 					images_rgb = np.concatenate([np.expand_dims(o1, axis=0),
 												 np.expand_dims(o2, axis=0)], axis=0)
-					images_rgb = torch.from_numpy(images_rgb).float().cuda().unsqueeze(0)#.div(255)
+					images_rgb = torch.from_numpy(images_rgb).float().cuda().unsqueeze(0).div(255)
 					agent.gen_interpolate(images_rgb, writer, step)
 
 			# Save agent periodically
@@ -202,10 +191,10 @@ def main(args):
 			writer.add_scalar('Success Rate (Training)', episode_success/args.episode_length, step)
 
 			obs = env.reset()
+			done = False
 
 			video_tensor = list()
 			video_tensor.append(obs[:3])
-			done = False
 			episode_reward = 0
 			episode_step = 0
 			episode += 1
@@ -214,11 +203,7 @@ def main(args):
 			L.log('train/episode', episode, step)
 
 		# Sample action and update agent
-		if args.algorithm in {'drqv2'}:
-			action = agent.sample_action(obs, step)
-			if step >= args.init_steps:
-				agent.update(replay_buffer, L, step)
-		elif step < args.init_steps:
+		if step < args.init_steps:
 			action = env.action_space.sample()
 		else:
 			with torch.no_grad(), utils.eval_mode(agent):
@@ -229,13 +214,12 @@ def main(args):
 
 		# Take step
 		next_obs, reward, done, info = env.step(action)
-		replay_buffer.add(obs, action, reward, next_obs, episode)
+		replay_buffer.add(obs, action, reward, next_obs)
 		episode_reward += reward
 		obs = next_obs
 		video_tensor.append(obs[:3])
-		episode_success+=float(info['is_success'])
+		episode_success += float(info['is_success'])
 		episode_step += 1
-
 	print('Completed training for', work_dir)
 	print("Total Training Time: ", round((time.time() - training_time) / 3600, 2), "hrs")
 

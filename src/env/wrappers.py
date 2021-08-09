@@ -152,26 +152,6 @@ class ObservationSpaceWrapper(gym.Wrapper):
             output = obs_dict['observation']
         return output
 
-        """if self.camera_dropout==3:
-			leave_out = 1 + np.random.randint(0, 3) # Chose a number b/w 1,2,3 at random
-		else:
-			leave_out = self.camera_dropout
-		if self.observation_type == 'image':
-			if self.num_cams == 1:
-				return obs_dict['observation'][0].transpose(2, 0, 1)
-			obs = np.empty((3*self.num_cams, self.image_size, self.image_size), dtype=obs_dict['observation'][0].dtype)
-			for ob in range(obs_dict['observation'].shape[0]):
-				if leave_out==(ob+1):
-					continue
-				else:
-					obs[3*ob:3*(ob+1)] = obs_dict['observation'][ob].transpose(2, 0, 1)
-
-
-		elif self.observation_type == 'state':
-			obs = obs_dict['observation']
-		return obs"""
-
-
 class ActionSpaceWrapper(gym.Wrapper):
     def __init__(self, env, action_space):
         assert action_space in {'xy', 'xyz', 'xyzw'}, 'task must be one of {xy, xyz, xyzw}'
@@ -319,4 +299,3 @@ class DomainRandomizationWrapper(gym.Wrapper):
             assert len(std) == len(default), 'std and default must be same length'
             std = np.array(std)
         return default + std * self.random_state.randn(len(default))
-
