@@ -232,13 +232,15 @@ class BaseEnv(robot_env.RobotEnv):
 
     def render_obs(self, mode=None, width=448, height=448, camera_id=None):
         self._render_callback()
-        data = []
+        cam1 = "front"
+        cameras = [cam1, "dyanmic"]
+        data = list()
+        for cam_name in cameras:
+            data.append(self.sim.render(
+                width, height, camera_name="camera_" + cam_name, depth=False
+            )[::-1, :, :])
+        return np.stack(data)
 
-        for cam in self.cameras:
-            data.append(self.sim.render(width, height, camera_name=cam, depth=False)[::-1, :, :])
 
-        return np.asarray(data)
-
-
-    def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
+def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
         return super(BaseEnv, self).render(mode, width, height)
