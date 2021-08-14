@@ -64,6 +64,7 @@ def main(args):
 	else:
 		print("ERRORR")
 		cameras = None
+	cameras = "dynamic"
 
 	# Initialize environments
 	gym.logger.set_level(40)
@@ -129,7 +130,7 @@ def main(args):
 	if args.use_latent:
 		a_obs_shape = (args.bottleneck*32, 32, 32)
 	elif args.use_impala:
-		a_obs_shape = (128, 8, 8)
+		a_obs_shape = (32, 8, 8)
 	else:
 		a_obs_shape = (32, 26, 26)
 

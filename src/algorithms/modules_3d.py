@@ -105,14 +105,22 @@ class ImpalaConv(nn.Module):
         """c is the number of channels in the input tensor"""
         super(ImpalaConv, self).__init__()
 
-        self.block_1 = BaseBlock(c, 32)
-        self.block_2 = BaseBlock(32, 64)
-        self.block_3 = BaseBlock(64, 128)
+        self.block_1 = BaseBlock(c, 16)
+        self.block_2 = BaseBlock(16, 32)
+        self.block_3 = BaseBlock(32, 32)
+        #self.block_4 = BaseBlock(32, 128)
 
-        self._body = nn.Sequential(self.block_1, self.block_2, self.block_3)
+        self.common = nn.Sequential(self.block_1, self.block_2)
+        self.head_rl = nn.Sequential(self.block_3)
+        #self.head_3d = nn.Sequential(self.block_4)
 
-    def forward(self, x):
-        return self._body(x)
+    def forward(self, x, rl=True):
+        x = self.common(x)
+        if rl:
+            x = self.head_rl(x)
+        else:
+            x = self.head_3d(x)
+        return x
 
     def output_size(self, size):
         size = self.block_1.output_size(size)
@@ -147,18 +155,15 @@ class Encoder_3d(nn.Module):
 
             self.feature_extraction1 = nn.Sequential(*self.feature_extraction1)
             self.feature_extraction2 = nn.Sequential(*self.feature_extraction2)
-
-            self.depth_layer = 8
-            self.feat_3d_ch = 128 // self.depth_layer
-
-            self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 64, 4, stride=2, padding=1) # 64 x 16 x 16 x 16
-            self.conv3d_2 = nn.ConvTranspose3d(64, args.bottleneck, 4, stride=2, padding=1)  # 16 x 32 x 32 x 32
         else:
-            self.feature_extraction = ImpalaConv(3)  # 64 x 8 x 8
-            self.depth_layer = 8
-            self.feat_3d_ch = 128 // self.depth_layer
-            self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 64, 4, stride=2, padding=1)  # 32 x 16 x 16 x 16
-            self.conv3d_2 = nn.ConvTranspose3d(64, args.bottleneck, 4, stride=2, padding=1)  # 16 x 32 x 32 x 32
+            self.feature_extraction1 = ImpalaConv(3)  # 64 x 8 x 8
+            self.feature_extraction2 = [nn.Conv2d(32, 128, 3, 1, 1), nn.ReLU()]
+            self.feature_extraction2 = nn.Sequential(*self.feature_extraction2)
+
+        self.depth_layer = 8
+        self.feat_3d_ch = 128 // self.depth_layer
+        self.conv3d_1 = nn.ConvTranspose3d(self.feat_3d_ch, 32, 4, stride=2, padding=1)  # 32 x 16 x 16 x 16
+        self.conv3d_2 = nn.ConvTranspose3d(32, args.bottleneck, 4, stride=2, padding=1)  # 16 x 32 x 32 x 32
 
         self.apply(orthogonal_init)
 
@@ -166,11 +171,8 @@ class Encoder_3d(nn.Module):
     def forward(self, img):
         # img -> 2d feature
 
-        if not self.use_impala:
-            z_2d_rl = self.feature_extraction1(img)  # 32 x 26 x 26
-            z_2d = self.feature_extraction2(z_2d_rl) # 64 x 8 x 8
-        else:
-            z_2d = self.feature_extraction(img) # 64 x 8 x 8
+        z_2d_rl = self.feature_extraction1(img) # 64 x 8 x 8
+        z_2d = self.feature_extraction2(z_2d_rl)
 
         B, C, H, W = z_2d.shape  # 128 x 8 x 8
         z_3d = z_2d.reshape(
@@ -182,16 +184,10 @@ class Encoder_3d(nn.Module):
         z_3d = self.conv3d_2(z_3d)  # bottleneck x 32 x 32 x 32
         z_3d = F.leaky_relu(z_3d)
 
-        if not self.use_impala:
-            if self.rl_latent:
-                rl_out = z_3d.clone()
-            else:
-                rl_out = z_2d_rl.clone()
+        if self.rl_latent:
+            rl_out = z_3d.clone()
         else:
-            if self.rl_latent:
-                rl_out = z_3d.clone()
-            else:
-                rl_out = z_2d.clone()
+            rl_out = z_2d_rl.clone()
 
         return rl_out, z_3d
 
@@ -203,13 +199,13 @@ class Decoder_3d(nn.Module):
         self.dec.append(nn.Conv2d(args.bottleneck*32, args.bottleneck*16, 1))
         self.dec.append(nn.ReLU())
 
-        self.dec.append(nn.Conv2d(args.bottleneck*16, args.bottleneck*8, 3, 1, 1))
+        self.dec.append(nn.Conv2d(args.bottleneck*16, args.bottleneck*4, 3, 1, 1))
         self.dec.append(nn.ReLU())
 
-        self.dec.append(nn.ConvTranspose2d(args.bottleneck*8, args.bottleneck*4, 4, 2, 1))
+        self.dec.append(nn.ConvTranspose2d(args.bottleneck*4, 32, 4, 2, 1))
         self.dec.append(nn.ReLU())
 
-        self.dec.append(nn.ConvTranspose2d(args.bottleneck*4, 32, 3, 1, 1))
+        self.dec.append(nn.ConvTranspose2d(32, 32, 3, 1, 1))
         self.dec.append(nn.ReLU())
 
         self.dec.append(nn.ConvTranspose2d(32, 3, 3, 1, 1))
