@@ -256,7 +256,5 @@ class BaseEnv(robot_env.RobotEnv):
             )[::-1, :, :])
         return np.stack(data)
 
-
-
-    def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
+def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
         return super(BaseEnv, self).render(mode, width, height)

@@ -51,8 +51,6 @@
             <geom conaffinity="0" contype="0" pos="0 0 0" rgba="0 0 1 0" size="0.0475 0.0475 0.001" type="box"></geom>
         </body>
 
-       
-        
         <light directional="true" ambient="0.2 0.2 0.2" diffuse="0 0 0" specular="0.01 0.01 0.01" castshadow="false" pos="4 0 4" dir="-1 0 -0.1" name="light0"></light>
         <light directional="true" ambient="0.1 0.1 0.1" diffuse="0 0 0" specular="0.01 0.01 0.01" castshadow="false" pos="0 -4 4" dir="0 1 -0.1" name="light1"></light>
         <light directional="true" ambient="0 0 0" diffuse="0 0 0" specular="0.01 0.01 0.01" castshadow="false" pos="40 4 4" name="light2"></light>
