@@ -248,7 +248,7 @@ class DomainRandomizationWrapper(gym.Wrapper):
 
         # new_x = 1.25 + 0.7 * cos_theta
         new_x = 1.5 + 0.5 * cos_theta
-        new_y = 0.3 + 0.45 * sin_theta
+        new_y = 0.3 + 0.3 * sin_theta
 
         # new_x = 1.655 + 0.445 * cos_theta
         # new_y = 0.3 + 0.6 * sin_theta
