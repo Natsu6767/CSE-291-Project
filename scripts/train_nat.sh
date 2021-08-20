@@ -27,7 +27,7 @@ python src/train.py \
 	--train_rl $RL \
 	--train_3d $THREED \
 	--init_steps 1000 \
-	--prop_to_3d 1 \
+	--prop_to_3d 0 \
 	--bottleneck 16 \
     --use_impala $IMPALA \
 	--use_latent $LATENT \
