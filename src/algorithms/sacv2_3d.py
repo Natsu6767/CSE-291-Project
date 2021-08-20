@@ -318,7 +318,7 @@ class SACv2_3D(object):
         if self.prop_to_3d:
             obs, _ = self.encoder_3d(obs)
         else:
-            with torch.no_grad:
+            with torch.no_grad():
                 obs, _ = self.encoder_3d(obs)
 
         obs = self.encoder_rl(obs)
