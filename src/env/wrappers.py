@@ -241,7 +241,7 @@ class DomainRandomizationWrapper(gym.Wrapper):
     def _randomize_camera(self):
         # self.cam_modder.set_fovy(self.camera_name, self.random_state.randint(45, 50))
         # self.cam_modder.set_pos(self.camera_name, self.pos + self._uniform(self.pos, [0, -0.25, 0], [0, 0.25, 0]))
-        theta = np.random.rand() * 2*np.pi - np.pi  #(3 * np.pi / 2) - (3 * np.pi / 4)
+        theta = np.random.rand() * np.pi - np.pi/2  #(3 * np.pi / 2) - (3 * np.pi / 4)
         phi = np.random.rand() * np.pi/2
         cos_theta = np.cos(theta)
         sin_theta = np.sin(theta)
