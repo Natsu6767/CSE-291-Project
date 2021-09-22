@@ -35,15 +35,42 @@ def register_robot_envs(n_substeps=20, observation_type='image', reward_type='de
 	)
 
 	register(
-		id='RobotPeg-v0',
-		entry_point='env.robot.peg_hole:PegEnv',
+		id='RobotPegbox-v0',
+		entry_point='env.robot.peg_in_box:PegBoxEnv',
 		kwargs=dict(
-			xml_path='robot/peg_hole.xml',
+			xml_path='robot/peg_in_box.xml',
 			n_substeps=n_substeps,
 			observation_type=observation_type,
 			reward_type=reward_type,
 			image_size=image_size,
+			use_xyz=use_xyz
 			
+		)
+	)
+
+	register(
+		id='RobotHammer-v0',
+		entry_point='env.robot.hammer:HammerEnv',
+		kwargs=dict(
+			xml_path='robot/hammer.xml',
+			n_substeps=n_substeps,
+			observation_type=observation_type,
+			reward_type=reward_type,
+			image_size=image_size,
+			use_xyz=use_xyz
+		)
+	)
+
+	register(
+		id='RobotHammerall-v0',
+		entry_point='env.robot.hammer_all:HammerAllEnv',
+		kwargs=dict(
+			xml_path='robot/hammer_all.xml',
+			n_substeps=n_substeps,
+			observation_type=observation_type,
+			reward_type=reward_type,
+			image_size=image_size,
+			use_xyz=use_xyz
 		)
 	)
 

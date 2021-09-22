@@ -10,6 +10,7 @@ THREED=$6
 IMPALA=$7
 LATENT=$8
 PCONV=$9
+ASPACE=${10}
 
 python src/train.py \
     --algorithm $ALGO \
@@ -30,5 +31,6 @@ python src/train.py \
 	--bottleneck 16 \
     --use_impala $IMPALA \
 	--use_latent $LATENT \
-	--project_conv $PCONV
+	--project_conv $PCONV \
+	--action_space $ASPACE
 

@@ -20,6 +20,7 @@ def evaluate(env, agent, video, num_episodes, L, step, test_env=False):
 	success_rate = []
 	for i in range(num_episodes):
 		obs = env.reset()
+		#import pdb; pdb.set_trace()
 		video.init(enabled=(i==0))
 		done = False
 		episode_reward = 0
