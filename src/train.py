@@ -83,7 +83,8 @@ def main(args):
 		render=args.render, # Only render if observation type is state
 		camera_dropout=args.camera_dropout,
 		observation_type='state' if args.from_state else 'image',
-		action_space=args.action_space
+		action_space=args.action_space,
+		rand_first=args.rand_first
 	)
 	test_env = make_env(
 		domain_name=args.domain_name,

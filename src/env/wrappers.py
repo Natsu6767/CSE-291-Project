@@ -26,7 +26,8 @@ def make_env(
         render=False,
         observation_type='image',
         camera_dropout=0,
-        action_space='xyzw'
+        action_space='xyzw',
+        rand_first=0
 ):
     """Make environment for experiments"""
     assert domain_name == 'robot', f'expected domain_name "robot", received "{domain_name}"'
@@ -49,7 +50,7 @@ def make_env(
     env = ActionSpaceWrapper(env, action_space=action_space)
     env = FrameStack(env, frame_stack)
     env = DomainRandomizationWrapper(env, domain_name=domain_name, randomizations=randomizations, seed=seed,
-                                     camera_name=cameras)
+                                     camera_name=cameras, rand_first=rand_first)
 
     return env
 
@@ -172,7 +173,7 @@ class ActionSpaceWrapper(gym.Wrapper):
 
 
 class DomainRandomizationWrapper(gym.Wrapper):
-    def __init__(self, env, domain_name, camera_name, randomizations=None, seed=None):
+    def __init__(self, env, domain_name, camera_name, rand_first=0, randomizations=None, seed=None):
         # assert domain_name in {'reach', 'push', 'cloth'}, \
         #	'domain randomization only implemented for reach, push, cloth domains'
         gym.Wrapper.__init__(self, env)
@@ -197,6 +198,7 @@ class DomainRandomizationWrapper(gym.Wrapper):
         self.material_modder = modder.MaterialModder(self.sim, random_state=self.random_state)
         self.texture_modder = modder.TextureModder(self.sim, random_state=self.random_state)
         self.brightness_std = 0
+        self.rand_first = rand_first
 
     def reset(self):
         if 'texture' in self.randomizations:
@@ -264,6 +266,32 @@ class DomainRandomizationWrapper(gym.Wrapper):
         pos[2] = new_z
 
         self.cam_modder.set_pos(self.camera_name, pos)
+
+        if self.rand_first:
+            theta = np.random.rand() * np.pi / 6 - np.pi / 12  # (3 * np.pi / 2) - (3 * np.pi / 4)
+            phi = np.random.rand() * np.pi / 12
+            cos_theta = np.cos(theta)
+            sin_theta = np.sin(theta)
+
+            cos_phi = np.cos(phi)
+            sin_phi = np.sin(phi)
+
+            pos = self.cam_modder.get_pos("camera_front")
+
+            # new_x = 1.25 + 0.7 * cos_theta
+            new_x = 1.5 + 0.5 * cos_phi * cos_theta
+            new_y = 0.3 + 0.3 * cos_phi * sin_theta
+            new_z = 1.4 + 0.1 * sin_phi
+
+            # new_x = 1.655 + 0.445 * cos_theta
+            # new_y = 0.3 + 0.6 * sin_theta
+
+            pos[0] = new_x
+            pos[1] = new_y
+            pos[2] = new_z
+
+            self.cam_modder.set_pos("camera_front", pos)
+
 
     def _randomize_brightness(self):
         self.brightness_std = self._add_noise(0, 0.05)

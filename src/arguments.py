@@ -109,6 +109,10 @@ def parse_args():
 	parser.add_argument('--update_3d_freq', default=1, type=int)
 	parser.add_argument('--log_train_video', default="50k", type=str)
 
+	parser.add_argument('--only_2_recon', default=0, type=int)
+	parser.add_argument('--rand_first', default=0, type=int)
+	parser.add_argument('--use_vae', default=0, type=int)
+
 	args = parser.parse_args()
 
 	assert args.algorithm in {'sac', 'sacv2', 'sacv2_3d', 'drq', 'svea', 'drqv2', 'multiview', 'drq_multiview'}, f'specified algorithm "{args.algorithm}" is not supported'

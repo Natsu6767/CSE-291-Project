@@ -242,6 +242,7 @@ class Posenet_3d(nn.Module):
         self.conv3 = conv(conv_planes[1], conv_planes[2])
 
         self.pose_pred = nn.Conv2d(conv_planes[2], 6 * self.nb_ref_imgs, kernel_size=1, padding=0)
+        self.pose_pred_stdev = nn.Conv2d(conv_planes[2], 6 * self.nb_ref_imgs, kernel_size=1, padding=0)
 
         self.init_weights()
 
@@ -259,7 +260,11 @@ class Posenet_3d(nn.Module):
 
         pose = self.pose_pred(out_conv3)
         pose = pose.mean(3).mean(2)
-        pose = 0.01 * pose.view(pose.size(0), 6)
+        pose = pose.view(pose.size(0), 6)
 
-        return pose
+        pose_stdev = self.pose_pred_stdev(out_conv3)
+        pose_stdev = pose_stdev.mean(3).mean(2)
+        pose_stdev = pose_stdev.view(pose.size(0), 6)
+
+        return pose, pose_stdev
 
