@@ -113,4 +113,30 @@ def register_robot_envs(n_substeps=20, observation_type='image', reward_type='de
 		)
 	)
 
+	register(
+		id='RobotPushWall-v0',
+		entry_point='env.robot.push_wall:PushWallEnv',
+		kwargs=dict(
+			xml_path='robot/push_wall.xml',
+			n_substeps=n_substeps,
+			observation_type=observation_type,
+			reward_type=reward_type,
+			image_size=image_size,
+			use_xyz=use_xyz
+		)
+	)
+
+	register(
+		id='RobotReachWall-v0',
+		entry_point='env.robot.reach_wall:ReachWallEnv',
+		kwargs=dict(
+			xml_path='robot/reach_wall.xml',
+			n_substeps=n_substeps,
+			observation_type=observation_type,
+			reward_type=reward_type,
+			image_size=image_size,
+			use_xyz=use_xyz
+		)
+	)
+
 	REGISTERED_ROBOT_ENVS = True
