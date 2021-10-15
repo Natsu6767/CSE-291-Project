@@ -6,7 +6,7 @@
         <geom conaffinity="0" contype="0" pos="0 0 0" rgba="0 0.5 0 0" size="0.005 0.005 1" type="box"></geom>
     </body>
 
-    <body name="link0" pos="1.05 0.30 0.8">
+    <body name="link0" pos="1.09 0.30 0.72">
         <geom name="bb" type="mesh" mesh="link_base" material="robot0:base_mat" rgba="1 1 1 1"/>
         <body name="link1" pos="0 0 0.267">
             <inertial pos="-0.0042142 0.02821 -0.0087788" quat="0.917781 -0.277115 0.0606681 0.277858" mass="0.42603" diaginertia="0.00144551 0.00137757 0.000823511" />
@@ -41,6 +41,7 @@
                                     <!--<geom name="j9" material="robot0:gripper_mat" type="mesh" rgba="0 0 0 1" mesh="base_link" />-->
                                                                             
                                     <camera mode="fixed" name="first_person" pos="0.15 -0.05 -0.25" euler="3.14159 0.2 -1.5708" fovy="25"/>
+                                    <site name="grasp" pos="0 0 0.17" rgba="1 0 0 0" type="sphere" size="0.01" group="1"/>
 
                                     
 
@@ -92,7 +93,7 @@
                                                 <!-- This sites were added for visualization. They are all standardized between models-->
                                                 <!-- Position mimics the gripper attachment point (right_hand) -->
                                                 <!--  Y-axis should be perpendicular to grasping motion, and Z-axis should point out of the robot eef -->
-                                                <site name="ee_2" pos="0 0 0" rgba="0 0 1 0" type="sphere" group="1"/>
+                                                <site name="ee_2" pos="0 0 0" rgba="1 0 0 0" type="sphere" size="0.01" group="1"/>
                                                 
                                             </body>
                                         </body>

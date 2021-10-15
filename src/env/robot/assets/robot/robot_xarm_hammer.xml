@@ -6,7 +6,7 @@
         <geom conaffinity="0" contype="0" pos="0 0 0" rgba="0 0.5 0 0" size="0.005 0.005 1" type="box"></geom>
     </body>
 
-    <body name="link0" pos="1.05 0.30 0.8">
+    <body name="link0" pos="1.05 0.30 0.72">
         <geom name="bb" type="mesh" mesh="link_base" material="robot0:base_mat" rgba="1 1 1 1"/>
         <body name="link1" pos="0 0 0.267">
             <inertial pos="-0.0042142 0.02821 -0.0087788" quat="0.917781 -0.277115 0.0606681 0.277858" mass="0.42603" diaginertia="0.00144551 0.00137757 0.000823511" />
@@ -41,6 +41,7 @@
                                     <!--<geom name="j9" material="robot0:gripper_mat" type="mesh" rgba="0 0 0 1" mesh="base_link" />-->
                                                                             
                                     <camera mode="fixed" name="first_person" pos="0.15 -0.05 -0.25" euler="3.14159 0.2 -1.5708" fovy="25"/>
+                                    <site name="grasp" pos="0 0 0.17" rgba="1 0 0 0" type="sphere" size="0.01" group="1"/>
 
                                     
 
@@ -65,10 +66,10 @@
                                                 <site name="ee_z" pos="0 0 0" size="0.005 .1" quat="0.707105 0 0 0.707108" rgba="0 0 1 0" type="cylinder" group="1"/>
                                                 <site name="ee_y" pos="0 0 0" size="0.005 .1" quat="0.707105 0 0.707108 0 " rgba="0 1 0 0" type="cylinder" group="1"/>
                                                 <!-- This camera points out from the eef. -->
-                                                <body name="hammer" pos="0 0 -0.01" euler="0 0 -1.5708">
-                                                    <geom name="handle" size="0.018 0.03" quat="0.707388 0 0.706825 0" type="capsule" condim="4" density="100000" rgba="0.87 0.1 0 1" />
-                                                    <geom name="neck" size="0.01 0.03" pos="-0.08 0 0" quat="0.707388 0 0.706825 0" type="capsule" density="100000" condim="4" rgba="0.87 0.1 0 1" />
-                                                    <geom name="head" size="0.023 0.03" pos="-0.11 0 0" type="cylinder" condim="4" density="100000" rgba="0.87 0.1 0 1" />
+                                                <body name="hammer" pos="0 -0.04 -0.01" euler="0 0 -1.5708">
+                                                    <geom name="handle" size="0.02 0.045" quat="0.707388 0 0.706825 0" type="capsule" condim="4" density="100000" rgba="0.87 0.1 0 1" />
+                                                    <geom name="neck" size="0.01 0.015" pos="-0.08 0 0" quat="0.707388 0 0.706825 0" type="capsule" density="100000" condim="4" rgba="0.87 0.1 0 1" />
+                                                    <geom name="head" size="0.025 0.03" pos="-0.11 0 0" type="cylinder" condim="4" density="100000" rgba="0.87 0.1 0 1" />
                                                     <site name="tool" pos="-0.11 0.0 0.03" size="0.01" rgba="0.1 0.87 0 0" />
                                                 </body>
                                                 

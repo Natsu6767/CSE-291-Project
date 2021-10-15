@@ -85,7 +85,7 @@ def reset_mocap2body_xpos(sim):
             continue
 
         body2 = sim.model.body_id2name(obj2_id)
-        if body2 == 'B0' or body2== 'B9':
+        if body2 == 'B0' or body2== 'B9' or body2 == 'B1':
             continue
 
         mocap_id = sim.model.body_mocapid[obj1_id]

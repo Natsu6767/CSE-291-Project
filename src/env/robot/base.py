@@ -9,6 +9,7 @@ from gym import error, spaces
 from gym.utils import seeding
 import copy
 import env.robot.gym_utils as utils # Modified some gym utils to incorporate multiple bodies in mocap
+import cv2
 
 DEFAULT_SIZE = 500
 
@@ -58,7 +59,7 @@ class BaseEnv(robot_env.RobotEnv):
         self.closed_angle = 0
         self.center_of_table = np.array([1.655, 0.3, 0.53625])
         self.default_z_offset = 0.04
-        self.max_z = 0.95
+        self.max_z = 1.0
         self.min_z = 0.6
 
         self.render_for_human = render
@@ -98,9 +99,9 @@ class BaseEnv(robot_env.RobotEnv):
     # Limiting gripper positions
     def _limit_gripper(self, gripper_pos, pos_ctrl):
 
-        if gripper_pos[0] > self.center_of_table[0] -0.205 + 0.1:
+        if gripper_pos[0] > self.center_of_table[0] -0.105 + 0.15:
             pos_ctrl[0] = min(pos_ctrl[0], 0)
-        if gripper_pos[0] < self.center_of_table[0] -0.205 - 0.1:
+        if gripper_pos[0] < self.center_of_table[0] -0.105 - 0.15:
             pos_ctrl[0] = max(pos_ctrl[0], 0)
         if gripper_pos[1] > self.center_of_table[1] + 0.15:
             pos_ctrl[1] = min(pos_ctrl[1], 0)
@@ -122,7 +123,7 @@ class BaseEnv(robot_env.RobotEnv):
         self._pos_ctrl_magnitude = np.linalg.norm(pos_ctrl)
 
         # make sure gripper does not leave workspace
-        gripper_pos = self.sim.data.get_site_xpos('ee_2')
+        gripper_pos = self.sim.data.get_site_xpos('grasp')
         pos_ctrl = self._limit_gripper(gripper_pos, pos_ctrl)
 
         pos_ctrl *= self.action_scale # limit maximum change in position
@@ -175,11 +176,15 @@ class BaseEnv(robot_env.RobotEnv):
 
 
     def _render_callback(self):
+
         # Visualize target.
-        sites_offset = (self.sim.data.site_xpos - self.sim.model.site_pos).copy()
-        site_id = self.sim.model.site_name2id('target0')
-        self.sim.model.site_pos[site_id] = self.goal - sites_offset[0]
-        
+        # sites_offset = (self.sim.data.site_xpos - self.sim.model.site_pos).copy()
+        # site_id = self.sim.model.site_name2id('target0')
+        # print("SITES ", sites_offset, site_id)
+        # self.sim.model.site_pos[site_id] = self.goal - sites_offset[7]
+
+        # print("Render callback ", self.goal, self.sim.model.site_pos[site_id], self.goal, sites_offset[7])
+
         self.sim.forward()
 
 
@@ -212,7 +217,7 @@ class BaseEnv(robot_env.RobotEnv):
         self._gripper_sync()
         for _ in range(10):
             self.sim.step()
-        self.initial_gripper_xpos = self.sim.data.get_site_xpos('ee_2').copy()
+        self.initial_gripper_xpos = self.sim.data.get_site_xpos('grasp').copy()
 
     def _is_success(self, achieved_goal, desired_goal):
         d = self.goal_distance(achieved_goal, desired_goal, self.use_xyz)
@@ -230,22 +235,12 @@ class BaseEnv(robot_env.RobotEnv):
         # Extract information for sampling goals
         self.table_xpos = self.sim.data.body_xpos[self.sim.model.body_name2id('table0')]
 
-    def render_obs(self, mode=None, width=448, height=448, camera_id=None):
-        """self._render_callback()
-        data = []
-        
-        for cam in self.cameras:
-            if cam=='first_person':
-                old_w = old_h = width
-                width = int(width*16/9)
-                height = int(height*16/9)
-                img = self.sim.render(width, height, camera_name=cam, depth=False)[::-1, :, :]
-                img = img[(width-old_w) :, (width-old_w) :]
-            else:
-                img = self.sim.render(width, height, camera_name=cam, depth=False)[::-1, :, :]
-            data.append(img)
+    def step(self, action):
+        self.goal = self._sample_goal(new=False).copy()
 
-        return np.asarray(data)"""
+        return super(BaseEnv, self).step(action)
+
+    def render_obs(self, mode=None, width=448, height=448, camera_id=None):
         self._render_callback()
         cam1 = "front"
         cameras = [cam1, "dynamic"]
@@ -255,6 +250,7 @@ class BaseEnv(robot_env.RobotEnv):
                 width, height, camera_name="camera_" + cam_name, depth=False
             )[::-1, :, :])
         return np.stack(data)
+
 
 def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
         return super(BaseEnv, self).render(mode, width, height)

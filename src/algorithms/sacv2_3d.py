@@ -221,9 +221,9 @@ class SACv2_3D(object):
 
         # L2 Loss
         if not self.huber:
-            loss_3d = F.mse_loss(output, img_tensor)
+            loss_3d = F.mse_loss(output[b:], img_tensor[b:])
         else:
-            loss_3d = F.huber_loss(output, img_tensor)
+            loss_3d = F.smooth_l1_loss(output[b:], img_tensor[b:])
 
         if log and writer is not None:
             writer.add_scalar("Loss 3D Recon", loss_3d, step)
