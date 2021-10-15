@@ -138,6 +138,7 @@ def main(args):
 
 	agent = make_agent(
 		obs_shape=a_obs_shape,
+		in_shape=(3, 64, 64),
 		action_shape=env.action_space.shape,
 		args=args
 	)

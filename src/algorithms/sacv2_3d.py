@@ -11,7 +11,7 @@ from algorithms.rot_utils import euler2mat
 
 
 class SACv2_3D(object):
-    def __init__(self, obs_shape, action_shape, args):
+    def __init__(self, obs_shape, in_shape, action_shape, args):
         self.discount = args.discount
         self.update_freq = args.update_freq
         self.tau = args.tau
@@ -24,11 +24,13 @@ class SACv2_3D(object):
         self.huber = args.huber
         self.bsize_3d = args.bsize_3d
         self.update_3d_freq = args.update_3d_freq
+        self.only_2_recon = args.only_2_recon
+        self.use_vae = args.use_vae
 
         project = True if args.use_latent else False
         project_conv = True if args.project_conv == 1 else False
 
-        shared = m.SharedCNN(obs_shape, args.num_shared_layers, args.num_filters, project, project_conv)
+        shared = m.SharedCNN(obs_shape, in_shape, args.num_shared_layers, args.num_filters, project, project_conv)
         head = m.HeadCNN(shared.out_shape, args.num_head_layers, args.num_filters)
         self.encoder_rl = m.Encoder(
             shared,
@@ -170,7 +172,7 @@ class SACv2_3D(object):
             alpha_loss.backward()
             self.log_alpha_optimizer.step()
 
-    def fwd_3d(self, imgs, writer, step, log=False):
+    def fwd_3d(self, imgs, writer, step, pose=False, log=False):
         """
 
         :param imgs:
@@ -199,7 +201,13 @@ class SACv2_3D(object):
         #   with torch.no_grad():
         #        traj = self.pose_3d(pair_tensor)  # b*t-1 x 6
         # else:
-        traj = self.pose_3d(pair_tensor)
+        traj_mean, traj_var = self.pose_3d(pair_tensor)
+        traj_stdev = torch.exp(0.5 * traj_var)
+        eps = torch.randn_like(traj_stdev)
+        if self.use_vae:
+            traj = traj_mean + eps * traj_stdev
+        else:
+            traj = traj_mean
         poses = torch.cat([torch.zeros(b, 1, 6).cuda(), traj.view(b, t - 1, 6)], dim=1).view(b * t, 6)
 
         theta = euler2mat(poses, scaling=False, translation=True)
@@ -220,16 +228,23 @@ class SACv2_3D(object):
         img_tensor = imgs.view(b * t, c, h, w)
 
         # L2 Loss
+        output_loss = output
+        if self.only_2_recon:
+            output_loss = output.view(b, t, c, h, w)[:, 1, ...]
+            img_tensor = imgs[:, 1, ...]
         if not self.huber:
-            loss_3d = F.mse_loss(output[b:], img_tensor[b:])
+            loss_3d = F.mse_loss(output_loss, img_tensor)
         else:
-            loss_3d = F.smooth_l1_loss(output[b:], img_tensor[b:])
+            loss_3d = F.smooth_l1_loss(output_loss, img_tensor)
 
+        if self.use_vae and pose:
+            kld_loss = torch.mean(-0.5 * torch.sum(1 + traj_var - traj_mean ** 2 - traj_var.exp(), dim=1), dim=0)
+
+        if self.use_vae and pose and writer is not None:
+            writer.add_scalar("Loss KL Pose", kld_loss, step)
         if log and writer is not None:
             writer.add_scalar("Loss 3D Recon", loss_3d, step)
-
             if step % self.log_3d_imgs == 0:
-                writer.add_text(f"Poses (Training)", str(poses), step)
                 writer.add_images(f'input images (Training)', imgs[0], step)
                 writer.add_images(f'reconstruction images (Training)',
                                   torch.clamp(output.view(b, t, c, h, w)[0], 0, 1), step)
@@ -237,6 +252,9 @@ class SACv2_3D(object):
                 writer.add_video(f'input videos (Training)', imgs, step)
                 writer.add_video(f'reconstruction videos (Training)',
                                  torch.clamp(output, 0, 1).view(b, t, c, h, w), step)
+
+        if self.use_vae and pose:
+            return loss_3d + kld_loss
         return loss_3d
 
     def update_3d_recon(self, imgs, L=None, writer=None, step=None):
@@ -260,7 +278,7 @@ class SACv2_3D(object):
 
         self.pose3d_optimizer.zero_grad(set_to_none=True)
 
-        loss = self.fwd_3d(imgs, writer, step, log=False)
+        loss = self.fwd_3d(imgs, writer, step, pose=True, log=False)
         loss.backward()
 
         self.pose3d_optimizer.step()
@@ -277,7 +295,14 @@ class SACv2_3D(object):
             imgs_ref = imgs[:, 0:1].repeat(1, t - 1, 1, 1, 1)
             imgs_pair = torch.cat([imgs_ref, imgs[:, 1:]], dim=2)  # b x t-1 x 6 x h x w
             pair_tensor = imgs_pair.view(b * (t - 1), c * 2, h, w)
-            traj = self.pose_3d(pair_tensor)  # b*t-1 x 6
+            #traj, traj_stdev = self.pose_3d(pair_tensor)  # b*t-1 x 6
+            traj_mean, traj_var = self.pose_3d(pair_tensor)
+            traj_stdev = torch.exp(0.5 * traj_var)
+            eps = torch.randn_like(traj_stdev)
+            if self.use_vae:
+                traj = traj_mean + eps * traj_stdev
+            else:
+                traj = traj_mean
             poses = torch.cat([torch.zeros(b, 1, 6).cuda(), traj.view(b, t - 1, 6)], dim=1).view(b * t, 6)
 
             poses_for_interp = poses.clone().view(b, t, -1).unsqueeze(1).repeat(1, a.size(1), 1, 1)

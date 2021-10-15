@@ -1,11 +1,9 @@
-name: xarm-new
+name: vidae
 channels:
   - defaults
 dependencies:
-  - python=3.7
-  - pytorch
-  - torchvision
-  - cudatoolkit=11.0
+  - python=3.8
+  - cudatoolkit=10.2
   - absl-py
   - pyparsing
   - pip

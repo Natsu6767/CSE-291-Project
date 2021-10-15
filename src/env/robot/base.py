@@ -21,7 +21,7 @@ class BaseEnv(robot_env.RobotEnv):
     """
     def __init__(
 
-        self, model_path, cameras, n_substeps=20, gripper_rotation=[0,1,1,0], 
+        self, model_path, cameras, n_substeps=20, gripper_rotation=[0,1,0,0], 
         has_object=False, image_size=84, reset_free=False, distance_threshold=0.05, action_penalty=0,
         observation_type='image', reward_type='dense', reward_bonus=True, use_xyz=False, action_scale=0.05, render=False
     ):
@@ -59,7 +59,7 @@ class BaseEnv(robot_env.RobotEnv):
         self.closed_angle = 0
         self.center_of_table = np.array([1.655, 0.3, 0.53625])
         self.default_z_offset = 0.04
-        self.max_z = 1.0
+        self.max_z = 1.6
         self.min_z = 0.6
 
         self.render_for_human = render
@@ -99,13 +99,13 @@ class BaseEnv(robot_env.RobotEnv):
     # Limiting gripper positions
     def _limit_gripper(self, gripper_pos, pos_ctrl):
 
-        if gripper_pos[0] > self.center_of_table[0] -0.105 + 0.15:
+        if gripper_pos[0] > self.center_of_table[0] + 0.35:
             pos_ctrl[0] = min(pos_ctrl[0], 0)
-        if gripper_pos[0] < self.center_of_table[0] -0.105 - 0.15:
+        if gripper_pos[0] < self.center_of_table[0] - 0.35:
             pos_ctrl[0] = max(pos_ctrl[0], 0)
-        if gripper_pos[1] > self.center_of_table[1] + 0.15:
+        if gripper_pos[1] > self.center_of_table[1] + 0.25:
             pos_ctrl[1] = min(pos_ctrl[1], 0)
-        if gripper_pos[1] < self.center_of_table[1] - 0.15:
+        if gripper_pos[1] < self.center_of_table[1] - 0.25:
             pos_ctrl[1] = max(pos_ctrl[1], 0)
         if gripper_pos[2] > self.max_z:
             pos_ctrl[2] = min(pos_ctrl[2], 0)
@@ -211,6 +211,7 @@ class BaseEnv(robot_env.RobotEnv):
 
     def _sample_initial_pos(self, gripper_target=None):
         assert gripper_target is not None, 'must configure gripper in task-specific class'
+        gripper_target[2] += 0.17 
         self.sim.data.set_mocap_pos('robot0:mocap2', gripper_target)
         self.sim.data.set_mocap_quat('robot0:mocap2', self.gripper_rotation)
         self.sim.data.set_joint_qpos('right_outer_knuckle_joint', self.closed_angle)
@@ -250,7 +251,28 @@ class BaseEnv(robot_env.RobotEnv):
                 width, height, camera_name="camera_" + cam_name, depth=False
             )[::-1, :, :])
         return np.stack(data)
+        """self._render_callback()
+        data = []
+        
+        for cam in self.cameras:
+            if cam=='first_person':
+                if width!=84:
+                    old_w = old_h = width # 84
+                else:
+                    old_w = old_h = 448 # 84
+                width1 = 640
+                height1 = 640
+                img = self.sim.render(width1, height1, camera_name=cam, depth=False)[::-1, :, :]
+                img = img[(width1-int(old_w)) :, (width1-int(old_w)) :] # 84x84
+                img[:old_w-int(old_w*3/4), :] = np.zeros((old_w-int(old_w*3/4), old_w, 3))
+                if width==84:
+                    img = cv2.resize(img, dsize=(84, 84), interpolation=cv2.INTER_CUBIC)
+            else:
+                img = self.sim.render(width, height, camera_name=cam, depth=False)[::-1, :, :]
+            data.append(img)
+
+        return np.asarray(data)"""
 
 
-def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
+    def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
         return super(BaseEnv, self).render(mode, width, height)

@@ -36,7 +36,6 @@
         </body>
 
 
-
 		<light directional="true" ambient="0.1 0.1 0.1" diffuse="0 0 0" specular="0 0 0" castshadow="false" pos="1.65 0 10" dir="-0.57 -0.57 -0.57" name="light0"></light>
         <light directional="true" ambient="0.1 0.1 0.1" diffuse="0 0 0" specular="0 0 0" castshadow="false" pos="0 -4 4" dir="0 1 -0.1" name="light1"></light>
         <light directional="true" ambient="0.05 0.05 0.05" diffuse="0 0 0" specular="0 0 0" castshadow="false" pos="2.13 1.6 2.5" name="light2"></light>

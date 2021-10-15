@@ -68,6 +68,7 @@ def xavier_uniform_init(module, gain=1.0):
         nn.init.constant_(module.bias.data, 0)
     return module
 
+
 class Flatten(nn.Module):
     def __init__(self):
         super().__init__()
@@ -119,6 +120,7 @@ class RandomShiftsAug(nn.Module):
                              padding_mode='zeros',
                              align_corners=False)
 
+
 class Encoder(nn.Module):
     def __init__(self, shared_cnn, head_cnn, projection):
         super().__init__()
@@ -134,37 +136,89 @@ class Encoder(nn.Module):
             x = x.detach()
         return self.projection(x)
 
-class SharedCNN(nn.Module):
-    def __init__(self, obs_shape, num_layers=11, num_filters=32, project=False, project_conv=False):
+
+class SelfAttention(nn.Module):
+    def __init__(self, in_channels):
         super().__init__()
-        """assert len(obs_shape) == 3
-        self.num_layers = num_layers
-        self.num_filters = num_filters
-        self.layers = [nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)]
-        for _ in range(1, num_layers):
-            self.layers.append(nn.ReLU())
-            self.layers.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))"""
+        #self.conv_query = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=1)
+        self.fc_query = nn.Linear(in_features=in_channels, out_features=in_channels)
+        self.conv_key = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=1)
+        self.conv_value = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=1)
+        self.in_channels = in_channels
+
+    def forward(self, query, key, value):
+        N, C, H, W = value.shape
+        #assert query.shape == key.shape == value.shape, "Key, query and value inputs must be of the same dimensions in this implementation"
+        q = self.fc_query(query).reshape(N, C, 1)  # .permute(0, 2, 1)
+        k = self.conv_key(key).reshape(N, C, H * W)  # .permute(0, 2, 1)
+        v = self.conv_value(value).reshape(N, C, H * W)  # .permute(0, 2, 1)
+        attention = k.transpose(1, 2) @ q / C ** 0.5
+        attention = attention.softmax(dim=1)
+        output = v @ attention
+        output = output.reshape(N, C, H, W)
+        return query + output  # Add with query and output
+
+
+class AttentionBlock(nn.Module):
+    def __init__(self, dim, num_heads=1, qkv_bias=False, qk_scale=None, norm_layer=nn.LayerNorm):
+        super().__init__()
+        self.norm1 = norm_layer(dim)
+        self.norm2 = norm_layer(dim)
+        self.norm3 = norm_layer(dim)
+        self.attn = SelfAttention(dim[0])
+        self.context = contextualReasoning
+        temp_shape = _get_out_shape(dim, self.attn, attn=True)
+        self.out_shape = _get_out_shape(temp_shape, nn.Flatten())
+        self.apply(orthogonal_init)
+
+    def forward(self, query, key, value):
+        x = self.attn(self.norm1(query), self.norm2(key), self.norm3(value))
+        return x
+
+
+class SharedCNN(nn.Module):
+    def __init__(self, obs_shape, in_shape, num_layers=11, num_filters=32, project=False, project_conv=False, attention=False):
+        super().__init__()
 
         self.num_layers = num_layers
         self.num_filters = num_filters
         self.project = project
         self.project_conv = project_conv
 
+        self.attention = attention
+
+
+        if self.attention:
+            self.layers_obs = [nn.Conv2d(in_shape[0], num_filters, 3, stride=2)]
+            for _ in range(1, num_layers):
+                self.layers_obs.append(nn.ReLU())
+                self.layers_obs.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
+            self.layers_obs.append(nn.ReLU())
+            self.layers_obs = nn.Sequential(*self.layers_obs)
+            self.out_shape = _get_out_shape(obs_shape, self.layers_obs)
+
         self.layers = [Identity()]
         if project and self.project_conv:
             self.layers = [nn.Conv2d(obs_shape[0], 32, kernel_size=1, stride=1, padding=0), nn.ReLU()]
+            if self.attention:
+                self.layers.append(nn.Conv2d(32, self.out_shape[0], kernel_size=3, stride=1, padding=1))
+                self.layers.append(nn.ReLU())
             self.layers = nn.Sequential(*self.layers)
 
         self.layers = nn.Sequential(*self.layers)
-        self.out_shape = _get_out_shape(obs_shape, self.layers)
-        self.apply(orthogonal_init)
 
-    def forward(self, x):
-        return self.layers(x)
+        self.out_shape = _get_out_shape(obs_shape, self.layers)
+
+        #self.attn =
+
+        self.apply(orthogonal_init)
 
     def forward(self, x):
         if self.project:
             x = x.view(-1, x.size(1) * x.size(2), x.size(3), x.size(4))
+            if self.attention:
+                obs = self.layers_obs(obs)
+                x3d = self.layers(x)
 
         return self.layers(x)
 
@@ -179,7 +233,7 @@ class HeadCNN(nn.Module):
         self.layers.append(Flatten())
         self.layers = nn.Sequential(*self.layers)
         self.out_shape = _get_out_shape(in_shape, self.layers)
-        #self.apply(orthogonal_init)
+        # self.apply(orthogonal_init)
 
     def forward(self, x):
         return self.layers(x)
