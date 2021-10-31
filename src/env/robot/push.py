@@ -22,6 +22,7 @@ class PushEnv(BaseEnv, utils.EzPickle):
 		)
 		self.state_dim = (26,) if self.use_xyz else (20,)
 		self.max_z = 0.9
+		self.distance_threshold = 0.2
 		utils.EzPickle.__init__(self)
 
 	def compute_reward(self, achieved_goal, goal, info):

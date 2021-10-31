@@ -59,8 +59,14 @@ class BaseEnv(robot_env.RobotEnv):
         self.closed_angle = 0
         self.center_of_table = np.array([1.655, 0.3, 0.53625])
         self.default_z_offset = 0.04
-        self.max_z = 1.6
+        self.max_z = 1.0
         self.min_z = 0.6
+        self.state_dim = 4 if use_xyz else 3
+        self.state_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(self.state_dim,), dtype=np.float32)
+        self.state_space_shape = self.state_space.shape
+
+        if self.observation_type in {'state', 'image'}:
+            self.state_space_shape = None
 
         self.render_for_human = render
         self.cameras = cameras
@@ -99,13 +105,13 @@ class BaseEnv(robot_env.RobotEnv):
     # Limiting gripper positions
     def _limit_gripper(self, gripper_pos, pos_ctrl):
 
-        if gripper_pos[0] > self.center_of_table[0] + 0.35:
+        if gripper_pos[0] > self.center_of_table[0] -0.105 + 0.15:
             pos_ctrl[0] = min(pos_ctrl[0], 0)
-        if gripper_pos[0] < self.center_of_table[0] - 0.35:
+        if gripper_pos[0] < self.center_of_table[0] -0.105 - 0.15:
             pos_ctrl[0] = max(pos_ctrl[0], 0)
-        if gripper_pos[1] > self.center_of_table[1] + 0.25:
+        if gripper_pos[1] > self.center_of_table[1] + 0.15:
             pos_ctrl[1] = min(pos_ctrl[1], 0)
-        if gripper_pos[1] < self.center_of_table[1] - 0.25:
+        if gripper_pos[1] < self.center_of_table[1] - 0.15:
             pos_ctrl[1] = max(pos_ctrl[1], 0)
         if gripper_pos[2] > self.max_z:
             pos_ctrl[2] = min(pos_ctrl[2], 0)
@@ -138,11 +144,21 @@ class BaseEnv(robot_env.RobotEnv):
         utils.ctrl_set_action(self.sim, action)
         utils.mocap_set_action(self.sim, action)
 
+
     def _get_state_obs(self):
         raise NotImplementedError('_get_state_obs has not been implemented for this task!')
 
     def _get_achieved_goal(self):
         raise NotImplementedError('_get_achieved_goal has not been implemented for this task!')
+
+    def _get_robot_state_obs(self):
+        eef_pos = self.sim.data.get_site_xpos('grasp')
+        gripper_angle = self.sim.data.get_joint_qpos('right_outer_knuckle_joint')
+        if not self.use_xyz:
+            eef_pos = eef_pos[:2]
+        return np.concatenate([
+            eef_pos, np.array([gripper_angle])
+        ], axis=0).astype(np.float32)
 
     def _get_image_obs(self):
         return self.render_obs(mode='rgb_array', width=self.image_size, height=self.image_size)
@@ -151,17 +167,18 @@ class BaseEnv(robot_env.RobotEnv):
         achieved_goal = self._get_achieved_goal()
         if self.observation_type == 'state':
             obs = self._get_state_obs()
-        elif self.observation_type == 'image' and not self.render_for_human:
+        elif self.observation_type in {'image', 'state+image'} and not self.render_for_human:
             obs = self._get_image_obs()
         elif self.render_for_human:
             obs = self._get_state_obs()
         else:
             raise ValueError(f'Received invalid observation type "{self.observation_type}"!')
-
+        
         return {
             'observation': obs,
             'achieved_goal': achieved_goal,
-            'desired_goal': self.goal
+            'desired_goal': self.goal,
+            'state': self._get_robot_state_obs() if self.observation_type == 'state+image' else None
         }
 
 
@@ -219,6 +236,8 @@ class BaseEnv(robot_env.RobotEnv):
         for _ in range(10):
             self.sim.step()
         self.initial_gripper_xpos = self.sim.data.get_site_xpos('grasp').copy()
+        
+        self.init_finger_xpos = (self.sim.data.get_body_xpos('right_hand') + self.sim.data.get_body_xpos('left_hand'))/2
 
     def _is_success(self, achieved_goal, desired_goal):
         d = self.goal_distance(achieved_goal, desired_goal, self.use_xyz)
@@ -251,28 +270,7 @@ class BaseEnv(robot_env.RobotEnv):
                 width, height, camera_name="camera_" + cam_name, depth=False
             )[::-1, :, :])
         return np.stack(data)
-        """self._render_callback()
-        data = []
-        
-        for cam in self.cameras:
-            if cam=='first_person':
-                if width!=84:
-                    old_w = old_h = width # 84
-                else:
-                    old_w = old_h = 448 # 84
-                width1 = 640
-                height1 = 640
-                img = self.sim.render(width1, height1, camera_name=cam, depth=False)[::-1, :, :]
-                img = img[(width1-int(old_w)) :, (width1-int(old_w)) :] # 84x84
-                img[:old_w-int(old_w*3/4), :] = np.zeros((old_w-int(old_w*3/4), old_w, 3))
-                if width==84:
-                    img = cv2.resize(img, dsize=(84, 84), interpolation=cv2.INTER_CUBIC)
-            else:
-                img = self.sim.render(width, height, camera_name=cam, depth=False)[::-1, :, :]
-            data.append(img)
-
-        return np.asarray(data)"""
 
 
-    def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
+def render(self, mode='human', width=500, height=500, depth=False, camera_id=0):
         return super(BaseEnv, self).render(mode, width, height)

@@ -14,8 +14,9 @@
         <texture builtin="flat" name="floor_tex" height="32" width="32" rgb1="1 1 1" type="cube"></texture>
         <texture builtin="flat" name="table_tex1" height="32" width="32" rgb1="1 1 1" type="cube"></texture>-->
         <texture builtin="none" name="table_tex" height="32" width="32" file="table1.png" type="cube"></texture>
-        <texture name="texture_wall" file="brick1.png" type="cube"></texture>
-
+        
+        <texture name="light_wood" file="../texture/light_wood.png" type="cube"/>
+        <material shininess=".1" name="light_wood" texture="light_wood" specular="0.4"/>
 
         <material name="floor_mat" specular="0" shininess="0.0" reflectance="0" rgba="0.2 0.3 0.3 1" texture="floor_tex"></material>
         <!--<material name="table_mat" specular="0.5" shininess="0.8" reflectance="0" rgba="0.23 0.45 0.32 1" texture="table_tex"></material>-->
@@ -33,7 +34,6 @@
         <material name="robot0:head_mat" shininess="0.03" specular="0.4" reflectance="0" texture="head_tex"></material>
         <material name="robot0:torso_mat" shininess="0.03" specular="0.4" reflectance="0" texture="torso_tex"></material>
         <material name="robot0:base_mat" shininess="0.03" specular="0.4" reflectance="0" texture="base_tex"></material>
-        <material name="wall_brick" texture="texture_wall" shininess="1" reflectance=".7" specular=".5"/>
 
 
         
@@ -73,7 +73,7 @@
     </asset>
 
     <equality>
-        <weld body1="robot0:mocap2" body2="right_hand" solimp="0.9 0.95 0.001" solref="0.02 1"></weld>
+        <weld body1="robot0:mocap2" body2="link7" solimp="0.9 0.95 0.001" solref="0.02 1"></weld>
     </equality>
 
     <default>

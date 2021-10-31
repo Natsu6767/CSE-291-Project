@@ -122,7 +122,7 @@ def main(args):
 	replay_buffer = utils.ReplayBuffer(
 		obs_shape=env.observation_space.shape,
 		action_shape=env.action_space.shape,
-		capacity=args.train_steps,
+		capacity=args.buffer_capacity,
 		batch_size=args.batch_size
 	)
 

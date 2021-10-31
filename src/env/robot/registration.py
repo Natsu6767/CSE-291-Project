@@ -33,32 +33,6 @@ def register_robot_envs(n_substeps=20, observation_type='image', reward_type='de
 			use_xyz=use_xyz
 		)
 	)
-	
-	register(
-		id='RobotDrawer-v0',
-		entry_point='env.robot.drawer:DrawerEnv',
-		kwargs=dict(
-			xml_path='robot/drawer.xml',
-			n_substeps=n_substeps,
-			observation_type=observation_type,
-			reward_type=reward_type,
-			image_size=image_size,
-			use_xyz=use_xyz
-		)
-	)
-
-	register(
-		id='RobotDrawerclose-v0',
-		entry_point='env.robot.drawer_close:DrawerCloseEnv',
-		kwargs=dict(
-			xml_path='robot/drawer.xml',
-			n_substeps=n_substeps,
-			observation_type=observation_type,
-			reward_type=reward_type,
-			image_size=image_size,
-			use_xyz=use_xyz
-		)
-	)
 
 	register(
 		id='RobotPegbox-v0',
@@ -152,11 +126,14 @@ def register_robot_envs(n_substeps=20, observation_type='image', reward_type='de
 		)
 	)
 
+	# --- Shelf Placing Task Class --- #
+
+	# classic view
 	register(
-		id='RobotPushWall-v0',
-		entry_point='env.robot.push_wall:PushWallEnv',
+		id='RobotShelfplacing-v0',
+		entry_point='env.robot.shelf_placing:ShelfPlacingEnv',
 		kwargs=dict(
-			xml_path='robot/push_wall.xml',
+			xml_path='robot/shelf_placing_classic.xml',
 			n_substeps=n_substeps,
 			observation_type=observation_type,
 			reward_type=reward_type,
@@ -165,11 +142,40 @@ def register_robot_envs(n_substeps=20, observation_type='image', reward_type='de
 		)
 	)
 
+	# a near view
 	register(
-		id='RobotReachWall-v0',
-		entry_point='env.robot.reach_wall:ReachWallEnv',
+		id='RobotShelfplacingnear-v0',
+		entry_point='env.robot.shelf_placing:ShelfPlacingEnv',
 		kwargs=dict(
-			xml_path='robot/reach_wall.xml',
+			xml_path='robot/shelf_placing_near.xml',
+			n_substeps=n_substeps,
+			observation_type=observation_type,
+			reward_type=reward_type,
+			image_size=image_size,
+			use_xyz=use_xyz
+		)
+	)
+
+	# a far view
+	register(
+		id='RobotShelfplacingfar-v0',
+		entry_point='env.robot.shelf_placing:ShelfPlacingEnv',
+		kwargs=dict(
+			xml_path='robot/shelf_placing_far.xml',
+			n_substeps=n_substeps,
+			observation_type=observation_type,
+			reward_type=reward_type,
+			image_size=image_size,
+			use_xyz=use_xyz
+		)
+	)
+
+	# a task based on ShelfPlacing
+	register(
+		id='RobotShelfgoandback-v0',
+		entry_point='env.robot.shelf_go_and_back:ShelfGoAndBackEnv',
+		kwargs=dict(
+			xml_path='robot/shelf_placing_classic.xml', # the same 
 			n_substeps=n_substeps,
 			observation_type=observation_type,
 			reward_type=reward_type,

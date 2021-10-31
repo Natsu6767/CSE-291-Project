@@ -1,13 +1,13 @@
 export MUJOCO_GL=egl
-CUDA_VISIBLE_DEVICES=7 python3 src/train.py \
+CUDA_VISIBLE_DEVICES=1 python3 src/train.py \
 	--algorithm sacv2_3d \
   	--task_name push \
 	--num_shared_layers 4 \
 	--projection_dim 64 \
 	--frame_stack 1 \
 	--save_video \
-	--exp_suffix new_camera_2 \
-	--train_steps 500k \
+	--exp_suffix dev \
+	--train_steps 100k \
 	--log_dir logs \
 	--seed 1 \
 	--image_size 64 \

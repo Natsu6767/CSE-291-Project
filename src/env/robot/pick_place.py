@@ -20,6 +20,7 @@ class PickPlaceEnv(BaseEnv, utils.EzPickle):
 			has_object=True
 		)
 		self.state_dim = (26,) if self.use_xyz else (20,)
+		self.flipbit = 1
 		utils.EzPickle.__init__(self)
 
 	def compute_reward(self, achieved_goal, goal, info):
@@ -38,7 +39,7 @@ class PickPlaceEnv(BaseEnv, utils.EzPickle):
 		reward = -0.1*np.square(self._pos_ctrl_magnitude) # action penalty
 		
 		if not self.over_obj :
-		    reward += -2 * d_eef_obj_xy
+		    reward += -2 * d_eef_obj_xy # penalty for not reaching object
 		    if d_eef_obj_xy <= 0.05 and not self.over_obj:
 		        self.over_obj = True
 		elif not self.lifted:
@@ -98,6 +99,18 @@ class PickPlaceEnv(BaseEnv, utils.EzPickle):
 		self.over_goal = False
 
 		return BaseEnv._reset_sim(self)
+
+	def _set_action(self, action):
+		assert action.shape == (4,)
+
+		if self.flipbit:
+			action[3] = 0
+			self.flipbit = 0
+		else:
+			action[:3] = np.zeros(3)
+			self.flipbit = 1
+		
+		BaseEnv._set_action(self, action)
 
 	def _get_achieved_goal(self):
 		return np.squeeze(self.sim.data.get_site_xpos('object0').copy())

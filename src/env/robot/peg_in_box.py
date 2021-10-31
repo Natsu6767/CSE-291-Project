@@ -20,6 +20,7 @@ class PegBoxEnv(BaseEnv, utils.EzPickle):
 			has_object=True
 		)
 		self.state_dim = (26,) if self.use_xyz else (20,)
+		self.distance_threshold = 0.08
 		
 		utils.EzPickle.__init__(self)
 
